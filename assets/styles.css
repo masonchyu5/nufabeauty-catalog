@@ -97,6 +97,139 @@ img { display: block; max-width: 100%; height: auto; }
 .print-button:hover { background: #a4181f; }
 
 /* ======================================================================== */
+/*  Brand contents                                                           */
+/* ======================================================================== */
+
+.brand-toc {
+  width: min(var(--page-w), calc(100vw - 32px));
+  margin: 28px auto 0;
+  background: #fff;
+  color: var(--color-ink);
+  border: 1px solid #dfe9ec;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32);
+}
+
+.brand-toc-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  background: #f7fbfc;
+  border-bottom: 1px solid #dfe9ec;
+}
+
+.brand-toc-kicker {
+  margin: 0 0 3px;
+  color: var(--chemical-abbrev-fg);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.brand-toc-title {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.brand-toc-count {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.brand-toc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.brand-toc-grid li {
+  min-width: 0;
+  border-right: 1px solid #e4eef1;
+  border-bottom: 1px solid #e4eef1;
+}
+
+.brand-toc-link {
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  padding: 8px 10px;
+  color: var(--color-ink);
+}
+
+.brand-toc-link:hover {
+  background: #f2fbfd;
+  color: var(--chemical-abbrev-fg);
+}
+
+.brand-toc-name {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.15;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.brand-toc-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.brand-toc-abbrev {
+  max-width: 58px;
+  padding: 2px 5px;
+  background: var(--chemical-abbrev-bg);
+  color: var(--chemical-abbrev-fg);
+  border: 1px solid var(--chemical-abbrev-border);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand-toc-page,
+.brand-toc-items {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .brand-toc {
+    width: calc(100vw - 20px);
+    margin-top: 14px;
+  }
+
+  .brand-toc-header {
+    align-items: start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .brand-toc-count {
+    white-space: normal;
+  }
+
+  .brand-toc-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ======================================================================== */
 /*  Landing                                                                   */
 /* ======================================================================== */
 
@@ -386,6 +519,7 @@ img { display: block; max-width: 100%; height: auto; }
   padding: 0.12in 0.1in;
   background: var(--chemical-abbrev-bg);
   color: var(--chemical-abbrev-fg);
+  scroll-margin-top: 72px;
 }
 
 .chemical-brand-title {
