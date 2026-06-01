@@ -1,0 +1,634 @@
+/* ======================================================================== */
+/*  Nu Fashion Beauty Supply — Print Catalog                                  */
+/*    General : page-by-source-PDF, red top banner, 3-col grid + bullets      */
+/*    Chemical: page-by-source-PDF, blue top banner, 4-col grid + ABE badge   */
+/* ======================================================================== */
+
+:root {
+  --color-burgundy: #7a1f2b;
+  --color-red: #c8202a;
+  --color-blue: #1c4f9b;
+  --color-paper: #faf7f2;
+  --color-pure: #ffffff;
+  --color-ink: #1a1714;
+  --color-muted: #6b645c;
+  --color-line: #d6cdbe;
+  --color-line-soft: #ebe5da;
+  --chemical-abbrev-bg: #cbeff6;
+  --chemical-abbrev-fg: #2290b0;
+  --chemical-abbrev-border: #d9f5fa;
+
+  --font-serif: "DM Serif Display", Georgia, serif;
+  --font-sans: "Inter Tight", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+
+  --page-w: 8.5in;
+  --page-h: 11in;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: #2f2c2a;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; height: auto; }
+
+.muted { color: var(--color-muted); font-weight: 400; }
+
+/* ======================================================================== */
+/*  Top bar (screen only)                                                    */
+/* ======================================================================== */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 12px 24px;
+  background: #1f1d1c;
+  color: var(--color-paper);
+  border-bottom: 1px solid #3a3735;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--color-paper); }
+.brand-mark { width: 18px; height: 18px; background: var(--color-red); transform: rotate(45deg); }
+.brand-name { font-family: var(--font-serif); font-size: 17px; letter-spacing: 0.01em; }
+
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topbar-nav a {
+  padding-bottom: 3px;
+  color: var(--color-paper);
+  border-bottom: 1px solid transparent;
+}
+
+.topbar-nav a:hover { color: var(--color-red); }
+.topbar-nav a[aria-current="page"] { border-bottom-color: var(--color-red); color: var(--color-red); }
+
+.print-button {
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  background: var(--color-red);
+  color: #fff;
+  border: 0;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.print-button:hover { background: #a4181f; }
+
+/* ======================================================================== */
+/*  Landing                                                                   */
+/* ======================================================================== */
+
+.hero { max-width: 880px; margin: 0 auto; padding: 80px 32px; color: var(--color-paper); }
+.eyebrow { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-red); margin: 0 0 14px; font-weight: 600; }
+.display { font-family: var(--font-serif); font-weight: 400; font-size: clamp(36px, 6vw, 56px); line-height: 1.05; margin: 0 0 14px; color: var(--color-paper); }
+.lede { font-size: 16px; color: #c5beb5; max-width: 620px; margin: 0 0 28px; }
+.tiles { display: grid; grid-template-columns: 1fr; gap: 18px; }
+@media (min-width: 720px) { .tiles { grid-template-columns: 1fr 1fr; gap: 24px; } }
+.tile { display: grid; gap: 6px; padding: 28px; background: #211f1e; border: 1px solid #3a3735; transition: border-color 180ms ease, background 180ms ease; min-height: 220px; align-content: start; color: var(--color-paper); }
+.tile:hover { border-color: var(--color-red); background: #2a2624; }
+.tile-eyebrow { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-red); font-weight: 600; }
+.tile-title { font-family: var(--font-serif); font-size: 40px; line-height: 1.05; }
+.tile-sub { color: #b8b1a8; margin-top: 4px; font-size: 14px; }
+.tile-cta { margin-top: 20px; color: var(--color-red); font-weight: 600; letter-spacing: 0.04em; font-size: 13px; }
+.footnote { font-size: 12px; color: #8c8678; margin-top: 36px; }
+
+/* ======================================================================== */
+/*  Print page — shared shell (disclaimer + banner + body + footer)           */
+/* ======================================================================== */
+
+.catalog-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 0 80px;
+  gap: 22px;
+}
+
+.print-page {
+  width: var(--page-w);
+  height: var(--page-h);
+  background: var(--color-pure);
+  color: var(--color-ink);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+}
+
+.page-disclaimer {
+  font-size: 7.5pt;
+  color: #5b5650;
+  text-align: right;
+  padding: 6px 0.4in 4px;
+  letter-spacing: 0.01em;
+  font-style: italic;
+}
+
+.page-banner {
+  color: #fff;
+  font-family: var(--font-serif);
+  font-size: 30pt;
+  letter-spacing: 0.06em;
+  padding: 10px 0.4in 12px;
+  text-align: right;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 18px;
+}
+
+.page-banner-general { background: var(--color-red); }
+.page-banner-chemical { background: var(--color-blue); }
+
+.page-banner .banner-abbrev {
+  font-family: var(--font-sans);
+  font-size: 11pt;
+  letter-spacing: 0.32em;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.page-body {
+  padding: 18px 0.4in 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-foot {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0.4in 12px;
+  border-top: 1px solid var(--color-line);
+  font-size: 8.5pt;
+  color: var(--color-muted);
+  letter-spacing: 0.04em;
+}
+
+.foot-mark {
+  width: 12px;
+  height: 12px;
+  background: var(--color-red);
+  transform: rotate(45deg);
+  display: inline-block;
+}
+
+.foot-name {
+  font-family: var(--font-serif);
+  color: var(--color-blue);
+  font-size: 13pt;
+  letter-spacing: 0.05em;
+}
+
+.foot-contact { justify-self: start; margin-left: 8px; color: var(--color-ink); }
+.foot-num { font-variant-numeric: tabular-nums; color: var(--color-muted); }
+
+.bc-placeholder { display: block; }
+
+/* ======================================================================== */
+/*  General — 3-column grid, sectioned by group_title, bullets + UPC          */
+/* ======================================================================== */
+
+.page-group + .page-group { margin-top: 18px; }
+
+.group-title {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 12pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  color: #4f4a44;
+}
+
+.item-grid-general {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px 22px;
+}
+
+.item-card-general {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.item-card-general .item-media {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #fff;
+  border: 1px solid var(--color-line);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 4px;
+}
+
+.item-card-general .item-media img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.item-card-general .item-media img.placeholder { width: 100%; height: 100%; }
+
+.item-card-general .item-sku {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: var(--color-burgundy);
+  font-size: 11pt;
+  letter-spacing: 0.02em;
+  margin: 6px 0 2px;
+}
+
+.item-card-general .item-name {
+  font-size: 9pt;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0 0 2px;
+}
+
+.item-card-general .item-pricing {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 9pt;
+  margin: 0 0 6px;
+}
+
+.item-card-general .item-pricing .qty {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.item-card-general .item-pricing .price {
+  font-weight: 700;
+  color: var(--color-burgundy);
+  font-size: 10pt;
+}
+
+.item-card-general .bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 8pt;
+  color: var(--color-ink);
+}
+
+.item-card-general .bullets li {
+  position: relative;
+  padding-left: 9px;
+  margin-bottom: 2px;
+  line-height: 1.3;
+}
+
+.item-card-general .bullets li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 3px;
+  height: 3px;
+  background: var(--color-burgundy);
+}
+
+.item-card-general .item-upc {
+  font-size: 7pt;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  margin: 6px 0 0;
+}
+
+/* ======================================================================== */
+/*  Chemical — 4-column grid, brand abbrev badge on every card                */
+/* ======================================================================== */
+
+/* ======================================================================== */
+/*  Chemical - fixed Letter page, reusable 4 x 5 product card grid          */
+/* ======================================================================== */
+
+.chemical-page {
+  width: var(--page-w);
+  height: var(--page-h);
+  grid-template-rows: 0.38in 1fr 0.54in;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.chemical-page .page-disclaimer {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 9pt;
+  color: #292521;
+  padding: 0.12in 0.52in 0.04in;
+  text-align: right;
+  letter-spacing: 0;
+  font-style: normal;
+}
+
+.chemical-page-body {
+  padding: 0.03in 0.42in 0;
+  display: block;
+  overflow: hidden;
+}
+
+.chemical-card-grid {
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid #dfe9ec;
+  border-left: 1px solid #dfe9ec;
+  overflow: hidden;
+}
+
+.chemical-card {
+  min-width: 0;
+  min-height: 0;
+  background: #fff;
+  border-right: 1px solid #d9e3e6;
+  border-bottom: 1px solid #d9e3e6;
+  overflow: hidden;
+}
+
+.chemical-brand-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.12in 0.1in;
+  background: var(--chemical-abbrev-bg);
+  color: var(--chemical-abbrev-fg);
+}
+
+.chemical-brand-title {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 17pt;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  max-width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.chemical-brand-card--long .chemical-brand-title {
+  font-size: 13.5pt;
+  line-height: 1.02;
+}
+
+.chemical-brand-card--xlong .chemical-brand-title {
+  font-size: 11.5pt;
+  line-height: 1.02;
+}
+
+.chemical-product-card {
+  display: grid;
+  grid-template-rows: 0.19in minmax(0, 1fr) 0.35in;
+}
+
+.chemical-abbrev-strip {
+  margin: 0;
+  background: var(--chemical-abbrev-bg);
+  color: var(--chemical-abbrev-fg);
+  border: 1px solid var(--chemical-abbrev-border);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13pt;
+  line-height: 0.18in;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0;
+}
+
+.chemical-product-main {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 48%) minmax(0, 52%);
+  column-gap: 0.02in;
+  padding: 0.035in 0.055in 0;
+}
+
+.chemical-product-copy {
+  min-width: 0;
+  min-height: 0;
+  align-self: start;
+}
+
+.chemical-product-sku,
+.chemical-product-name,
+.chemical-product-qty,
+.chemical-product-price {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.chemical-product-sku {
+  font-size: 9pt;
+  line-height: 1.05;
+  font-weight: 700;
+  color: #111;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "lnum" 1, "tnum" 1;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.chemical-product-card--long-sku .chemical-product-sku {
+  font-size: 7.2pt;
+  line-height: 1.1;
+}
+
+.chemical-product-name {
+  color: #222;
+  font-size: 8.2pt;
+  line-height: 1.03;
+  font-weight: 700;
+  margin-top: 0.01in;
+}
+
+.chemical-product-qty {
+  color: #333;
+  font-size: 7.4pt;
+  line-height: 1.1;
+  font-weight: 400;
+  margin-top: 0.015in;
+}
+
+.chemical-product-price {
+  color: #8b5f3a;
+  font-size: 10.8pt;
+  line-height: 1.02;
+  font-weight: 700;
+  margin-top: 0.015in;
+}
+
+.chemical-product-card--dense .chemical-product-name {
+  font-size: 7.2pt;
+  line-height: 1;
+}
+
+.chemical-product-card--ultra-dense .chemical-product-name {
+  font-size: 6.1pt;
+  line-height: 0.98;
+}
+
+.chemical-product-card--ultra-dense .chemical-product-qty {
+  font-size: 6.8pt;
+  line-height: 1;
+  margin-top: 0.01in;
+}
+
+.chemical-product-card--ultra-dense .chemical-product-price {
+  font-size: 9.4pt;
+  line-height: 1;
+  margin-top: 0.01in;
+}
+
+.chemical-product-image {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.chemical-product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.chemical-product-image img.placeholder {
+  opacity: 0.28;
+}
+
+.chemical-barcode {
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0.05in 0.025in;
+}
+
+.chemical-barcode img,
+.chemical-barcode .barcode-svg,
+.chemical-barcode-missing {
+  width: 1.18in;
+  height: 0.32in;
+  display: block;
+}
+
+.chemical-barcode img {
+  object-fit: fill;
+}
+
+.chemical-page .page-foot {
+  grid-template-columns: 0.24in auto auto 1fr;
+  gap: 0.1in;
+  padding: 0.08in 0.48in 0.1in;
+  border-top: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 16pt;
+  line-height: 1;
+  color: #4d4a47;
+  letter-spacing: 0;
+}
+
+.chemical-page .foot-mark {
+  width: 0.22in;
+  height: 0.22in;
+  background: var(--color-blue);
+  position: relative;
+  justify-self: end;
+}
+
+.chemical-page .foot-mark::after {
+  content: "NU";
+  position: absolute;
+  inset: 0;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  transform: rotate(-45deg);
+  font-size: 5pt;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.chemical-page .foot-name {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 18pt;
+  font-weight: 700;
+  color: #2879bf;
+  letter-spacing: 0.04em;
+}
+
+.chemical-page .foot-contact {
+  justify-self: start;
+  margin-left: 0.04in;
+  color: #4d4a47;
+  white-space: nowrap;
+}
+
+.chemical-page .foot-num {
+  display: none;
+}
+
+.chemical-page .chemical-product-main {
+  grid-template-columns: minmax(0, 48%) minmax(0, 52%);
+}
+
+/* ======================================================================== */
+/*  Print                                                                     */
+/* ======================================================================== */
+
+@page {
+  size: letter;
+  margin: 0;
+}
+
+@media print {
+  html, body { background: #fff !important; color: #000; }
+  .no-print { display: none !important; }
+  .catalog-stack { padding: 0; gap: 0; display: block; }
+  .print-page {
+    width: var(--page-w);
+    height: var(--page-h);
+    margin: 0;
+    box-shadow: none;
+    page-break-after: always;
+    break-after: page;
+  }
+  .print-page:last-child { page-break-after: auto; break-after: auto; }
+}

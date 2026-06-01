@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" role="img" aria-label="No image available">
+  <rect x="0.5" y="0.5" width="219" height="219" fill="#faf7f2" stroke="#7a1f2b" stroke-width="1"/>
+  <g opacity="0.28" fill="#7a1f2b">
+    <text x="110" y="118" text-anchor="middle" font-family="'DM Serif Display', Georgia, serif" font-size="38" letter-spacing="2">NFB</text>
+    <text x="110" y="148" text-anchor="middle" font-family="'Inter Tight', system-ui, sans-serif" font-size="10" letter-spacing="3">NO IMAGE</text>
+  </g>
+</svg>
