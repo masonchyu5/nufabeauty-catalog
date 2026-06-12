@@ -546,7 +546,7 @@ img { display: block; max-width: 100%; height: auto; }
 
 .chemical-product-card {
   display: grid;
-  grid-template-rows: 0.19in minmax(0, 1fr) 0.35in;
+  grid-template-rows: 0.19in minmax(0, 1fr) 0.29in;
 }
 
 .chemical-abbrev-strip {
@@ -565,9 +565,9 @@ img { display: block; max-width: 100%; height: auto; }
 .chemical-product-main {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 48%) minmax(0, 52%);
+  grid-template-columns: minmax(0, 46%) minmax(0, 54%);
   column-gap: 0.02in;
-  padding: 0.035in 0.055in 0;
+  padding: 0.03in 0.05in 0;
 }
 
 .chemical-product-copy {
@@ -672,14 +672,14 @@ img { display: block; max-width: 100%; height: auto; }
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 0 0.05in 0.025in;
+  padding: 0 0.04in 0.018in;
 }
 
 .chemical-barcode img,
 .chemical-barcode .barcode-svg,
 .chemical-barcode-missing {
-  width: 1.18in;
-  height: 0.32in;
+  width: 1.2in;
+  height: 0.265in;
   display: block;
 }
 
@@ -740,7 +740,7 @@ img { display: block; max-width: 100%; height: auto; }
 }
 
 .chemical-page .chemical-product-main {
-  grid-template-columns: minmax(0, 48%) minmax(0, 52%);
+  grid-template-columns: minmax(0, 46%) minmax(0, 54%);
 }
 
 /* ======================================================================== */
