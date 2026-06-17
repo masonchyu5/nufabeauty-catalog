@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}General · Nu Fashion Beauty Supply{% endblock %}
+{% block content %}
+<div class="catalog-stack">
+  {% for page in pages %}
+    {% include "_page_general.html" %}
+  {% endfor %}
+</div>
+{% endblock %}

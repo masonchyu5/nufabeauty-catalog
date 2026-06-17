@@ -1,0 +1,42 @@
+<article class="print-page general-page" data-source-page="{{ page.source_page_num }}">
+  <div class="page-disclaimer">Not responsible for errors in pricing or copy. Prices are subject to change without notice.</div>
+  <header class="page-banner page-banner-general">{{ page.banner }}</header>
+  <div class="page-body">
+    {% for group in page.groups %}
+    <section class="page-group">
+      {% if group.name and group.name != "—" %}<h2 class="group-title">{{ group.name }}</h2>{% endif %}
+      <div class="item-grid item-grid-general" data-count="{{ group.products|length }}">
+        {% for item in group.products %}
+        <article class="item-card item-card-general">
+          <div class="item-media">
+            {% if item.image_src %}
+              <img src="{{ item.image_src }}" alt="{{ item.name or item.sku }}" loading="lazy">
+            {% else %}
+              <img src="assets/placeholder.svg" alt="No image available" class="placeholder">
+            {% endif %}
+          </div>
+          <p class="item-sku">{{ item.sku }}</p>
+          {% if item.name %}<p class="item-name">{{ item.name }}</p>{% else %}<p class="item-name muted">Name not available</p>{% endif %}
+          <p class="item-pricing">
+            {% if item.qty_display %}<span class="qty">{{ item.qty_display }}</span>{% endif %}
+            <span class="price">{% if item.unit_price %}${{ item.unit_price }}{% else %}<span class="muted">—</span>{% endif %}</span>
+          </p>
+          {% if item.bullets %}
+          <ul class="bullets">
+            {% for b in item.bullets %}<li>{{ b }}</li>{% endfor %}
+          </ul>
+          {% endif %}
+          {% if item.upc %}<p class="item-upc">UPC {{ item.upc }}</p>{% endif %}
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+  <footer class="page-foot">
+    <span class="foot-mark" aria-hidden="true"></span>
+    <span class="foot-name">NU FASHION</span>
+    <span class="foot-contact">Tel: 1-314-725-8434 &nbsp; Fax: 1-314-725-8436</span>
+    <span class="foot-num">Page {{ page.page_num }}</span>
+  </footer>
+</article>

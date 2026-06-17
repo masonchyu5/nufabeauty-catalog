@@ -1,0 +1,51 @@
+<article class="print-page chemical-page">
+  <div class="page-disclaimer">Not responsible for errors in pricing or copy. Prices are subject to change without notice.</div>
+  <div class="page-body chemical-page-body">
+    <div class="chemical-card-grid">
+      {% for slot in page.slots %}
+      {% if slot.type == "brand" %}
+      <section id="{{ slot.anchor }}" class="chemical-card chemical-brand-card{% if slot.banner|length > 36 %} chemical-brand-card--xlong{% elif slot.banner|length > 24 %} chemical-brand-card--long{% endif %}" aria-label="{{ slot.banner }}">
+        <div class="chemical-brand-title">{{ slot.banner }}</div>
+      </section>
+      {% elif slot.type == "product" %}
+      {% set item = slot.item %}
+      <article class="chemical-card chemical-product-card{% if item.sku|length > 10 %} chemical-product-card--long-sku{% endif %}{% if item.name|length > 84 %} chemical-product-card--ultra-dense{% elif item.name|length > 64 %} chemical-product-card--dense{% endif %}">
+        <p class="chemical-abbrev-strip">{{ item.brand_abbrev }}</p>
+        <div class="chemical-product-main">
+          <div class="chemical-product-copy">
+            <p class="chemical-product-sku">{{ item.sku }}</p>
+            {% if item.name %}<p class="chemical-product-name">{{ item.name }}</p>{% else %}<p class="chemical-product-name muted">Name not available</p>{% endif %}
+            <p class="chemical-product-qty">{% if item.qty_display %}{{ item.qty_display }}{% else %}<span class="muted">&mdash;</span>{% endif %}</p>
+            <p class="chemical-product-price">{% if item.unit_price %}{{ item.unit_price }}/ea{% else %}<span class="muted">&mdash;</span>{% endif %}</p>
+          </div>
+          <div class="chemical-product-image">
+            {% if item.image_src %}
+              <img src="{{ item.image_src }}" alt="{{ item.name or item.sku }}" loading="lazy">
+            {% else %}
+              <img src="assets/placeholder.svg" alt="No image available" class="placeholder">
+            {% endif %}
+          </div>
+        </div>
+        <div class="chemical-barcode">
+          {% if item.barcode_svg %}
+            {{ item.barcode_svg|safe }}
+          {% elif item.barcode_src %}
+            <img src="{{ item.barcode_src }}" alt="" aria-hidden="true">
+          {% else %}
+            <span class="chemical-barcode-missing" aria-label="Barcode unavailable"></span>
+          {% endif %}
+        </div>
+      </article>
+      {% else %}
+      <div class="chemical-card chemical-empty-card" aria-hidden="true"></div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  <footer class="page-foot">
+    <span class="foot-mark" aria-hidden="true"></span>
+    <span class="foot-name">NU FASHION</span>
+    <span class="foot-contact">Tel: 1-314-725-8434 &nbsp; Fax: 1-314-725-8436</span>
+    <span class="foot-num">Page {{ page.page_num }}</span>
+  </footer>
+</article>

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Chemical · Nu Fashion Beauty Supply{% endblock %}
+{% block content %}
+{% if brand_toc %}
+<nav class="brand-toc no-print" aria-labelledby="brand-toc-title">
+  <div class="brand-toc-header">
+    <div>
+      <p class="brand-toc-kicker">Chemical Catalog</p>
+      <h1 id="brand-toc-title" class="brand-toc-title">Brand Contents</h1>
+    </div>
+    <p class="brand-toc-count">{{ brand_toc|length }} brands &middot; {{ total_items }} items</p>
+  </div>
+  <ol class="brand-toc-grid">
+    {% for brand in brand_toc %}
+    <li>
+      <a class="brand-toc-link" href="#{{ brand.anchor }}">
+        <span class="brand-toc-name">{{ brand.brand }}</span>
+        <span class="brand-toc-meta">
+          {% if brand.brand_abbrev %}<span class="brand-toc-abbrev">{{ brand.brand_abbrev }}</span>{% endif %}
+          <span class="brand-toc-page">p. {{ brand.page_num }}</span>
+          <span class="brand-toc-items">{{ brand.item_count }} item{% if brand.item_count != 1 %}s{% endif %}</span>
+        </span>
+      </a>
+    </li>
+    {% endfor %}
+  </ol>
+</nav>
+{% endif %}
+<div class="catalog-stack">
+  {% for page in pages %}
+    {% include "_page_chemical.html" %}
+  {% endfor %}
+</div>
+{% endblock %}
