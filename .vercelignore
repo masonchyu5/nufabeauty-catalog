@@ -1,0 +1,17 @@
+# Keep build sources and internal files off the public site.
+# Only index.html, chemical.html, admin.html, assets/, images/, api/ are deployed.
+.git
+.github
+.gitattributes
+pages
+templates
+bullets.csv
+items_chemical_master.csv
+items_general_master.csv
+build_catalog.py
+requirements-catalog.txt
+generalcatalogexample.pdf
+ADMIN_UPLOAD_PLAN.md
+ADMIN_SETUP.md
+AGENTS.md
+CLAUDE.md

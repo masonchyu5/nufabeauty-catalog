@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import glob
+import hashlib
 import json
 import re
 import shutil
@@ -41,6 +42,16 @@ TEMPLATES_DIR = CATALOG_DIR / "templates"
 SITE_DIR = CATALOG_DIR
 SITE_IMAGES_DIR = SITE_DIR / "images"
 NORMALIZED_IMAGES_DIR = SITE_IMAGES_DIR / "products-normalized"
+# Maps normalized file name -> SHA-256 of the master image it was built from.
+# mtimes are useless in CI (git checkouts assign fresh ones), so incremental
+# rebuilds key off content hashes instead. The masters in pages/chemical-upc-v3
+# are canonical; everything under images/products-normalized is derived output.
+NORMALIZED_MANIFEST_PATH = NORMALIZED_IMAGES_DIR / ".manifest.json"
+# Bump this whenever normalized_product_image() changes how images look
+# (size, padding, trimming, quality, ...). A version mismatch discards the
+# manifest, so the next build regenerates every normalized image from its
+# master copy.
+NORMALIZATION_VERSION = 1
 
 CHEMICAL_LIMIT: int | None = None
 
@@ -227,6 +238,50 @@ def in_scope(rows: list[dict[str, str]]) -> tuple[list[dict], dict[str, int]]:
     return chemical, stats
 
 
+_normalized_manifest: dict[str, str] | None = None
+
+
+def _load_normalized_manifest() -> dict[str, str]:
+    global _normalized_manifest
+    if _normalized_manifest is None:
+        try:
+            with NORMALIZED_MANIFEST_PATH.open(encoding="utf-8") as f:
+                data = json.load(f)
+            images = data.get("images") if isinstance(data, dict) else None
+            if data.get("normalization") == NORMALIZATION_VERSION and isinstance(images, dict):
+                _normalized_manifest = {
+                    k: v for k, v in images.items() if isinstance(k, str) and isinstance(v, str)
+                }
+            else:
+                _normalized_manifest = {}
+        except (OSError, json.JSONDecodeError, AttributeError):
+            _normalized_manifest = {}
+    return _normalized_manifest
+
+
+def _save_normalized_manifest() -> None:
+    if _normalized_manifest is None:
+        return
+    kept = {
+        name: digest
+        for name, digest in sorted(_normalized_manifest.items())
+        if (NORMALIZED_IMAGES_DIR / name).exists()
+    }
+    NORMALIZED_MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    NORMALIZED_MANIFEST_PATH.write_text(
+        json.dumps({"normalization": NORMALIZATION_VERSION, "images": kept}, indent=1) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _copy(src_rel: str, dest_name: str) -> str | None:
     src = CATALOG_DIR / src_rel
     if not src.exists():
@@ -266,7 +321,9 @@ def normalized_product_image(src_rel: str, sku: str) -> str | None:
 
     dest_name = f"{_slug(sku)}.jpg"
     dest = NORMALIZED_IMAGES_DIR / dest_name
-    if dest.exists() and dest.stat().st_mtime >= src.stat().st_mtime:
+    manifest = _load_normalized_manifest()
+    src_hash = _file_sha256(src)
+    if dest.exists() and manifest.get(dest_name) == src_hash:
         return f"images/products-normalized/{dest_name}"
 
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -309,6 +366,7 @@ def normalized_product_image(src_rel: str, sku: str) -> str | None:
         print(f"  WARNING: could not normalize {src_rel}: {exc}", file=sys.stderr)
         return _copy(src_rel, _image_dest_name(sku, src_rel))
 
+    manifest[dest_name] = src_hash
     return f"images/products-normalized/{dest_name}"
 
 
@@ -506,6 +564,8 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
+
+    _save_normalized_manifest()
 
     products = [
         slot["item"]

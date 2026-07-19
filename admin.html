@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalog Admin · Nu Fashion Beauty Supply</title>
+<style>
+  :root {
+    --bg: #f4f4f2;
+    --card: #ffffff;
+    --ink: #1d1d1f;
+    --muted: #6e6e73;
+    --line: #e3e3e0;
+    --accent: #0a6c47;
+    --accent-ink: #ffffff;
+    --warn-bg: #fff7e6;
+    --warn-ink: #8a5b00;
+    --err-bg: #fdecec;
+    --err-ink: #a01f1f;
+    --ok-ink: #0a6c47;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 80px; }
+  header.top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  header.top h1 { font-size: 22px; margin: 0; }
+  header.top .actions { display: flex; gap: 10px; align-items: center; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 20px; margin-bottom: 18px;
+  }
+  .card h2 { margin: 0 0 4px; font-size: 17px; }
+  .card p.hint { margin: 0 0 14px; color: var(--muted); font-size: 13.5px; }
+  button, .btn {
+    font: inherit; border: 1px solid var(--line); background: #fff; color: var(--ink);
+    border-radius: 8px; padding: 8px 14px; cursor: pointer; text-decoration: none;
+    display: inline-block;
+  }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button.link { border: none; background: none; color: var(--accent); padding: 4px; text-decoration: underline; }
+  .drop {
+    border: 2px dashed #c9c9c4; border-radius: 10px; padding: 26px 16px;
+    text-align: center; color: var(--muted); background: #fafaf8; cursor: pointer;
+  }
+  .drop.hover { border-color: var(--accent); color: var(--accent); background: #f0f7f3; }
+  .drop strong { color: var(--ink); }
+  .report { margin-top: 14px; font-size: 14px; }
+  .report .stats { color: var(--muted); margin-bottom: 8px; }
+  .msg { border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
+  .msg.err { background: var(--err-bg); color: var(--err-ink); }
+  .msg.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .msg.ok { background: #eaf5ef; color: var(--ok-ink); }
+  .filelist {
+    margin-top: 14px; max-height: 340px; overflow-y: auto;
+    border: 1px solid var(--line); border-radius: 8px; font-size: 13.5px;
+  }
+  .filelist:empty { display: none; }
+  .frow {
+    display: flex; align-items: center; gap: 10px; padding: 6px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .frow:last-child { border-bottom: none; }
+  .frow .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .frow .tag {
+    font-size: 11.5px; padding: 1px 8px; border-radius: 99px; background: #eee; color: var(--muted);
+    white-space: nowrap;
+  }
+  .frow .tag.new { background: #e7f0fb; color: #1a5da0; }
+  .frow .tag.unref { background: var(--warn-bg); color: var(--warn-ink); }
+  .frow .st { min-width: 110px; text-align: right; color: var(--muted); white-space: nowrap; }
+  .frow .st.done { color: var(--ok-ink); }
+  .frow .st.failed { color: var(--err-ink); }
+  .frow .rm { border: none; background: none; color: var(--muted); cursor: pointer; padding: 2px 6px; }
+  .progress { height: 8px; background: #e8e8e5; border-radius: 99px; margin-top: 12px; overflow: hidden; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .prog-label { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .review-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 14px; margin-bottom: 12px; }
+  .review-grid dt { color: var(--muted); }
+  .review-grid dd { margin: 0; }
+  #publish-block { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  #publish-btn { padding: 12px 26px; font-size: 16px; }
+  #publish-reasons { color: var(--muted); font-size: 13px; }
+  #status-card .big { font-size: 17px; font-weight: 600; }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px; border: 2px solid #c9c9c4;
+    border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;
+    vertical-align: -2px; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* login */
+  #login-view { max-width: 360px; margin: 12vh auto 0; }
+  #login-view h1 { font-size: 20px; text-align: center; }
+  #login-view input {
+    width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line);
+    border-radius: 8px; margin-bottom: 12px;
+  }
+  #login-view button { width: 100%; }
+  #login-err { min-height: 22px; color: var(--err-ink); font-size: 13.5px; text-align: center; margin-top: 10px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="login-view" class="hidden">
+  <div class="card">
+    <h1>Catalog Admin</h1>
+    <p class="hint" id="login-hint">Enter the admin password to continue.</p>
+    <input type="password" id="password" autocomplete="current-password" placeholder="Password">
+    <button class="primary" id="login-btn">Log in</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<div id="app-view" class="wrap hidden">
+  <header class="top">
+    <h1>Catalog Admin</h1>
+    <div class="actions">
+      <a class="btn" href="/api/csv">Download current CSV</a>
+      <button id="logout-btn">Log out</button>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>1 · Product data (CSV)</h2>
+    <p class="hint">Optional. The uploaded file fully replaces <code>items_chemical_master.csv</code>. Skip this to publish image changes only.</p>
+    <div class="drop" id="csv-drop">
+      Drop the CSV here, or <strong>click to choose a file</strong>
+      <input type="file" id="csv-input" accept=".csv,text/csv" class="hidden">
+    </div>
+    <div class="report" id="csv-report"></div>
+  </section>
+
+  <section class="card">
+    <h2>2 · Product images</h2>
+    <p class="hint">Drop individual photos or a whole folder. These become the master copies the catalog is built from — originals are kept as-is (photos over 4&nbsp;MB are shrunk just enough to fit the upload limit). A file with the same name as one already in the catalog replaces it; new names are added and used once the CSV refers to them. Accepted: .jpg, .jpeg, .png, .webp. Uploads start immediately and resume if the page reloads.</p>
+    <div class="drop" id="img-drop">
+      Drop photos or a folder here, or
+      <strong><button class="link" id="pick-files">choose files</button></strong> /
+      <strong><button class="link" id="pick-folder">choose a folder</button></strong>
+      <input type="file" id="img-input" accept=".jpg,.jpeg,.png,.webp" multiple class="hidden">
+      <input type="file" id="dir-input" webkitdirectory class="hidden">
+    </div>
+    <div class="progress hidden" id="img-progress"><div></div></div>
+    <div class="prog-label" id="img-prog-label"></div>
+    <div class="filelist" id="filelist"></div>
+    <div style="margin-top:10px">
+      <button id="retry-failed" class="hidden">Retry failed</button>
+      <button id="clear-failed" class="hidden">Remove failed</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3 · Review &amp; publish</h2>
+    <dl class="review-grid" id="review"></dl>
+    <div id="publish-block">
+      <button class="primary" id="publish-btn" disabled>Publish to live site</button>
+      <span id="publish-reasons"></span>
+    </div>
+  </section>
+
+  <section class="card hidden" id="status-card">
+    <h2>Build status</h2>
+    <p class="big" id="status-line"></p>
+    <p class="hint" id="status-detail"></p>
+  </section>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- tiny CSV parser (mirror of the server's) ---------- */
+function parseCsv(text) {
+  const src = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+  const rows = []; let row = [], field = "", q = false;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (q) {
+      if (c === '"') { if (src[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && src[i + 1] === "\n") i++;
+      row.push(field); rows.push(row); row = []; field = "";
+    } else field += c;
+  }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+function csvImageRefs(text) {
+  const rows = parseCsv(text).filter(r => r.some(c => c.trim() !== ""));
+  if (!rows.length) return new Set();
+  const idx = rows[0].map(h => h.trim()).indexOf("image_path");
+  if (idx < 0) return new Set();
+  const refs = new Set();
+  for (const r of rows.slice(1)) {
+    const rel = (r[idx] || "").trim();
+    if (rel) refs.add(rel.split("/").pop());
+  }
+  return refs;
+}
+
+/* ---------- state ---------- */
+const IMG_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(jpg|jpeg|png|webp)$/i;
+const MAX_BYTES = 4 * 1024 * 1024;      // server-side upload limit
+const MAX_INTAKE_BYTES = 50 * 1024 * 1024; // sanity cap before downscaling
+const SHRINK_EDGES = [2400, 2000, 1600, 1200, 900]; // only for photos over MAX_BYTES
+const ENCODE_QUALITY = 0.92;
+const PACE_MS = 1000;
+const WORKERS = 3;
+const CACHE_TTL = 24 * 3600 * 1000;
+
+const state = {
+  loggedIn: false,
+  repoImages: new Set(),
+  currentRefs: new Set(),
+  csv: null,          // { name, text, report, refs }
+  files: new Map(),   // basename -> item
+  queue: [],
+  running: 0,
+  paused: false,
+  nextSlot: 0,
+  publishing: false,
+  validateTimer: null,
+};
+
+const $ = id => document.getElementById(id);
+
+/* ---------- api helper ---------- */
+async function api(path, opts = {}) {
+  const res = await fetch(path, { credentials: "same-origin", ...opts });
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (res.status === 401 && state.loggedIn) sessionExpired();
+  return { ok: res.ok, status: res.status, data, headers: res.headers };
+}
+
+/* ---------- login ---------- */
+function showLogin(expired) {
+  $("login-view").classList.remove("hidden");
+  $("app-view").classList.add("hidden");
+  $("login-hint").textContent = expired
+    ? "Your session expired. Log in again — uploads in progress will resume."
+    : "Enter the admin password to continue.";
+  $("password").focus();
+}
+function sessionExpired() {
+  state.paused = true;
+  showLogin(true);
+}
+async function doLogin() {
+  const btn = $("login-btn");
+  btn.disabled = true;
+  $("login-err").textContent = "";
+  const { ok, data, status } = await api("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: $("password").value }),
+  });
+  btn.disabled = false;
+  if (!ok) {
+    $("login-err").textContent = (data && data.error) ||
+      (status === 429 ? "Too many attempts — wait 15 minutes." : "Login failed.");
+    return;
+  }
+  $("password").value = "";
+  $("login-view").classList.add("hidden");
+  $("app-view").classList.remove("hidden");
+  const resuming = state.loggedIn && state.paused;
+  state.loggedIn = true;
+  if (resuming) { state.paused = false; pump(); }
+  else init();
+}
+
+async function doLogout() {
+  await api("/api/logout", { method: "POST" });
+  location.reload();
+}
+
+/* ---------- init after login ---------- */
+async function init() {
+  const [imgs, csvRes] = await Promise.all([
+    api("/api/repo-images"),
+    fetch("/api/csv", { credentials: "same-origin" }),
+  ]);
+  if (imgs.ok) state.repoImages = new Set(imgs.data.images);
+  if (csvRes.ok) state.currentRefs = csvImageRefs(await csvRes.text());
+  updateUI();
+}
+
+/* ---------- CSV handling ---------- */
+async function setCsv(file) {
+  if (!file) return;
+  if (!/\.csv$/i.test(file.name)) {
+    renderCsvReport({ ok: false, errors: [`"${file.name}" is not a .csv file.`], warnings: [], stats: {} }, file.name);
+    return;
+  }
+  const text = await file.text();
+  state.csv = { name: file.name, text, report: null, refs: csvImageRefs(text) };
+  $("csv-report").innerHTML = '<div class="msg"><span class="spinner"></span>Checking the file…</div>';
+  await validateCsvNow();
+  updateUI();
+}
+async function validateCsvNow() {
+  if (!state.csv) return;
+  const batch = [...state.files.keys()];
+  const { ok, data } = await api("/api/validate-csv", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ csv: state.csv.text, batchImages: batch }),
+  });
+  state.csv.report = ok ? data : { ok: false, errors: [(data && data.error) || "Validation request failed."], warnings: [], stats: {} };
+  renderCsvReport(state.csv.report, state.csv.name);
+  updateUI();
+}
+function scheduleRevalidate() {
+  if (!state.csv) return;
+  clearTimeout(state.validateTimer);
+  state.validateTimer = setTimeout(validateCsvNow, 800);
+}
+function renderCsvReport(report, name) {
+  const el = $("csv-report");
+  const bits = [];
+  if (report.stats && report.stats.inScopeRows != null) {
+    bits.push(`<div class="stats"><strong>${esc(name)}</strong> — ${report.stats.inScopeRows} products across ` +
+      `${report.stats.totalRows} rows${report.stats.skippedMissingBrand ? `, ${report.stats.skippedMissingBrand} skipped (missing brand info)` : ""}.</div>`);
+  } else {
+    bits.push(`<div class="stats"><strong>${esc(name)}</strong></div>`);
+  }
+  for (const e of report.errors || []) bits.push(`<div class="msg err">✗ ${esc(e)}</div>`);
+  for (const w of report.warnings || []) bits.push(`<div class="msg warn">⚠ ${esc(w)}</div>`);
+  if (report.ok) bits.push('<div class="msg ok">✓ This file can be published.' +
+    ((report.warnings || []).length ? " Warnings above will not block publishing." : "") + "</div>");
+  el.innerHTML = bits.join("");
+}
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+/* ---------- image intake ---------- */
+function filesFromDataTransfer(dt) {
+  const out = [];
+  const entries = [];
+  for (const item of dt.items) {
+    const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+    if (entry) entries.push(entry);
+    else { const f = item.getAsFile(); if (f) out.push(f); }
+  }
+  async function walk(entry) {
+    if (entry.isFile) {
+      out.push(await new Promise((res, rej) => entry.file(res, rej)));
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      for (;;) {
+        const batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+        if (!batch.length) break;
+        for (const e of batch) await walk(e);
+      }
+    }
+  }
+  return (async () => { for (const e of entries) await walk(e); return out; })();
+}
+
+function addFiles(fileList) {
+  let added = 0, rejected = [];
+  for (const file of fileList) {
+    const name = file.name;
+    if (/\.csv$/i.test(name)) { setCsv(file); continue; }
+    if (!IMG_RE.test(name) || name.includes("..")) { rejected.push(`${name} — unsupported name or type`); continue; }
+    if (file.size > MAX_INTAKE_BYTES) { rejected.push(`${name} — larger than 50 MB`); continue; }
+    if (file.size === 0) { rejected.push(`${name} — empty file`); continue; }
+    const existing = state.files.get(name);
+    if (existing && (existing.status === "uploading" || existing.status === "hashing")) continue;
+    if (existing) {
+      const qi = state.queue.indexOf(existing);
+      if (qi >= 0) state.queue.splice(qi, 1);
+      if (existing.row) existing.row.remove();
+    }
+    const item = { file, name, size: file.size, status: "queued", sha: null, error: null, attempts: 0, row: null };
+    state.files.set(name, item);
+    state.queue.push(item);
+    added++;
+  }
+  if (rejected.length) {
+    for (const r of rejected.slice(0, 8)) addSkippedRow(r);
+  }
+  if (added) { renderFileList(); pump(); scheduleRevalidate(); }
+  updateUI();
+}
+
+function addSkippedRow(text) {
+  const div = document.createElement("div");
+  div.className = "frow";
+  div.innerHTML = `<span class="name">${esc(text)}</span><span class="st failed">skipped</span>` +
+    `<button class="rm" title="Dismiss">✕</button>`;
+  div.querySelector(".rm").onclick = () => div.remove();
+  $("filelist").prepend(div);
+}
+
+/* ---------- upload pipeline ---------- */
+const MIME_BY_EXT = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
+
+// The uploaded file becomes the MASTER copy in the repo — the catalog's display
+// images are re-derived from it server-side, and how they are derived may change
+// later. So originals pass through byte-identical whenever they fit the server's
+// 4 MB limit; only oversized photos are re-encoded, at descending sizes, just
+// enough to fit. The filename (and therefore the extension) never changes, so
+// the re-encode must stay in the same format.
+async function encodeBitmap(bitmap, w, h, mime) {
+  if (typeof OffscreenCanvas === "function") {
+    const canvas = new OffscreenCanvas(w, h);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+    return canvas.convertToBlob({ type: mime, quality: ENCODE_QUALITY });
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+  return new Promise(r => canvas.toBlob(r, mime, ENCODE_QUALITY));
+}
+async function prepareUpload(item) {
+  const file = item.file;
+  if (file.size <= MAX_BYTES) return file; // master preserved untouched
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw new Error("Over 4 MB and not a readable image");
+  }
+  const mime = MIME_BY_EXT[item.name.split(".").pop().toLowerCase()];
+  try {
+    for (const edge of SHRINK_EDGES) {
+      const scale = Math.min(1, edge / Math.max(bitmap.width, bitmap.height));
+      const w = Math.max(1, Math.round(bitmap.width * scale));
+      const h = Math.max(1, Math.round(bitmap.height * scale));
+      const blob = await encodeBitmap(bitmap, w, h, mime);
+      if (!blob || blob.type !== mime) {
+        throw new Error(`This browser cannot shrink ${item.name.split(".").pop()} files`);
+      }
+      if (blob.size <= MAX_BYTES) return blob;
+    }
+  } finally {
+    bitmap.close();
+  }
+  throw new Error("Still larger than 4 MB after shrinking");
+}
+
+async function sha256Hex(buf) {
+  const d = await crypto.subtle.digest("SHA-256", buf);
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function cacheGet(hash) {
+  try {
+    const raw = localStorage.getItem("nufaUp:" + hash);
+    if (!raw) return null;
+    const val = JSON.parse(raw);
+    if (!val.sha || Date.now() - val.t > CACHE_TTL) { localStorage.removeItem("nufaUp:" + hash); return null; }
+    return val.sha;
+  } catch { return null; }
+}
+function cachePut(hash, sha) {
+  try { localStorage.setItem("nufaUp:" + hash, JSON.stringify({ sha, t: Date.now() })); } catch {}
+}
+
+function pump() {
+  while (!state.paused && state.running < WORKERS && state.queue.length) {
+    const item = state.queue.shift();
+    state.running++;
+    uploadOne(item).finally(() => { state.running--; pump(); updateUI(); });
+  }
+  updateUI();
+}
+
+async function uploadOne(item) {
+  try {
+    item.status = "hashing"; renderRow(item);
+    const prepared = await prepareUpload(item);
+    const buf = await prepared.arrayBuffer();
+    const hash = await sha256Hex(buf);
+    const cached = cacheGet(hash);
+    if (cached) {
+      item.sha = cached; item.status = "done"; item.cached = true; renderRow(item);
+      scheduleRevalidate();
+      return;
+    }
+    for (;;) {
+      if (state.files.get(item.name) !== item) return; // removed while queued/retrying
+      const wait = state.nextSlot - Date.now();
+      state.nextSlot = Math.max(Date.now(), state.nextSlot) + PACE_MS;
+      if (wait > 0) await sleep(wait);
+      if (state.files.get(item.name) !== item) return;
+      if (state.paused) { item.status = "queued"; state.queue.unshift(item); renderRow(item); return; }
+
+      item.status = "uploading"; renderRow(item);
+      let res;
+      try {
+        res = await fetch("/api/upload-image?filename=" + encodeURIComponent(item.name), {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: buf,
+        });
+      } catch {
+        res = null; // network error
+      }
+
+      if (res && res.ok) {
+        const data = await res.json();
+        item.sha = data.sha; item.status = "done"; renderRow(item);
+        cachePut(hash, data.sha);
+        scheduleRevalidate();
+        return;
+      }
+      if (res && res.status === 401) {
+        state.queue.unshift(item); item.status = "queued"; renderRow(item);
+        sessionExpired();
+        return;
+      }
+      if (res && res.status === 400) {
+        const data = await res.json().catch(() => ({}));
+        item.status = "failed"; item.error = data.error || "Rejected"; renderRow(item);
+        return;
+      }
+      item.attempts++;
+      if (item.attempts > 5) {
+        item.status = "failed"; item.error = res ? `Upload failed (HTTP ${res.status})` : "Network error"; renderRow(item);
+        return;
+      }
+      let delay = Math.min(30000, 2000 * 2 ** item.attempts);
+      if (res && (res.status === 403 || res.status === 429)) {
+        const ra = parseInt(res.headers.get("Retry-After") || "", 10);
+        if (ra > 0) delay = Math.min(120000, ra * 1000);
+      }
+      item.status = "waiting"; renderRow(item);
+      await sleep(delay);
+    }
+  } catch (err) {
+    item.status = "failed"; item.error = err.message || "Unexpected error"; renderRow(item);
+  }
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- rendering ---------- */
+function renderFileList() {
+  for (const item of state.files.values()) {
+    if (!item.row || !item.row.isConnected) {
+      const div = document.createElement("div");
+      div.className = "frow";
+      div.innerHTML = `<span class="name"></span><span class="tag t-exist"></span><span class="tag t-ref"></span>` +
+        `<span class="st"></span><button class="rm" title="Remove">✕</button>`;
+      div.querySelector(".rm").onclick = () => removeItem(item);
+      item.row = div;
+      $("filelist").appendChild(div);
+    }
+    renderRow(item);
+  }
+}
+function renderRow(item) {
+  if (!item.row) return;
+  const refs = state.csv ? state.csv.refs : state.currentRefs;
+  item.row.querySelector(".name").textContent = item.name;
+  const t1 = item.row.querySelector(".t-exist");
+  if (state.repoImages.has(item.name)) { t1.textContent = "replaces existing"; t1.className = "tag t-exist"; }
+  else { t1.textContent = "new"; t1.className = "tag t-exist new"; }
+  const t2 = item.row.querySelector(".t-ref");
+  if (!refs.has(item.name)) { t2.textContent = "not in CSV"; t2.title = "No product row points at this file yet; it will be stored but not shown."; t2.className = "tag t-ref unref"; }
+  else { t2.textContent = ""; t2.className = "tag t-ref hidden"; }
+  const st = item.row.querySelector(".st");
+  const label = {
+    queued: "queued", hashing: "preparing…", uploading: "uploading…",
+    waiting: "retrying…", done: item.cached ? "✓ already uploaded" : "✓ uploaded",
+    failed: "✗ " + (item.error || "failed"),
+  }[item.status] || item.status;
+  st.textContent = label;
+  st.title = item.error || "";
+  st.className = "st " + (item.status === "done" ? "done" : item.status === "failed" ? "failed" : "");
+  item.row.querySelector(".rm").disabled = item.status === "uploading" || item.status === "hashing";
+}
+function removeItem(item) {
+  const qi = state.queue.indexOf(item);
+  if (qi >= 0) state.queue.splice(qi, 1);
+  if (item.row) item.row.remove();
+  state.files.delete(item.name);
+  scheduleRevalidate();
+  updateUI();
+}
+
+function counts() {
+  let done = 0, failed = 0, pending = 0;
+  for (const item of state.files.values()) {
+    if (item.status === "done") done++;
+    else if (item.status === "failed") failed++;
+    else pending++;
+  }
+  return { done, failed, pending, total: state.files.size };
+}
+
+function updateUI() {
+  const c = counts();
+  const bar = $("img-progress");
+  if (c.total) {
+    bar.classList.remove("hidden");
+    bar.firstElementChild.style.width = (c.done / c.total * 100).toFixed(1) + "%";
+    $("img-prog-label").textContent =
+      `${c.done} of ${c.total} uploaded` +
+      (c.failed ? `, ${c.failed} failed` : "") +
+      (state.paused ? " — paused (logged out)" : "");
+  } else {
+    bar.classList.add("hidden");
+    $("img-prog-label").textContent = "";
+  }
+  $("retry-failed").classList.toggle("hidden", !c.failed);
+  $("clear-failed").classList.toggle("hidden", !c.failed);
+
+  // review
+  const refs = state.csv ? state.csv.refs : state.currentRefs;
+  let replacing = 0, added = 0, unref = 0;
+  for (const item of state.files.values()) {
+    if (item.status !== "done") continue;
+    if (state.repoImages.has(item.name)) replacing++; else added++;
+    if (!refs.has(item.name)) unref++;
+  }
+  const rows = [];
+  rows.push(["Product data", state.csv
+    ? (state.csv.report ? (state.csv.report.ok ? `replace with “${esc(state.csv.name)}” (${state.csv.report.stats.inScopeRows} products)` : `“${esc(state.csv.name)}” has errors — fix and re-drop it`) : "checking…")
+    : "unchanged"]);
+  rows.push(["Images", c.total
+    ? `${c.done} ready — ${replacing} replace existing photos, ${added} new` + (unref ? ` (${unref} not referenced by the CSV)` : "")
+    : "none"]);
+  $("review").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+
+  // publish gating
+  const reasons = [];
+  if (state.publishing) reasons.push("publishing…");
+  if (state.csv && !state.csv.report) reasons.push("CSV check in progress");
+  if (state.csv && state.csv.report && !state.csv.report.ok) reasons.push("fix the CSV errors first");
+  if (c.pending) reasons.push(`waiting for ${c.pending} upload(s)`);
+  if (c.failed) reasons.push("retry or remove the failed uploads");
+  if (!state.csv && !c.done) reasons.push("nothing to publish yet");
+  $("publish-btn").disabled = reasons.length > 0;
+  $("publish-reasons").textContent = reasons.join(" · ");
+}
+
+/* ---------- publish + status ---------- */
+async function doPublish() {
+  state.publishing = true; updateUI();
+  const images = [...state.files.values()]
+    .filter(i => i.status === "done")
+    .map(i => ({ filename: i.name, sha: i.sha }));
+  const { ok, status, data } = await api("/api/publish", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ csv: state.csv ? state.csv.text : null, images }),
+  });
+  state.publishing = false;
+  if (!ok) {
+    const msg = (data && data.error) || `Publish failed (HTTP ${status}).`;
+    showStatus("✗ " + msg, status === 409
+      ? "Reload the page and publish again — your uploads are remembered."
+      : "Nothing was changed on the live site.");
+    updateUI();
+    return;
+  }
+  // fold the publish into local state
+  for (const item of state.files.values()) {
+    if (item.status === "done") state.repoImages.add(item.name);
+  }
+  if (state.csv) { state.currentRefs = state.csv.refs; state.csv = null; $("csv-report").innerHTML = ""; }
+  for (const item of [...state.files.values()]) removeItem(item);
+  updateUI();
+  pollBuild(data.commit);
+}
+
+function showStatus(line, detail, url) {
+  $("status-card").classList.remove("hidden");
+  $("status-line").innerHTML = line;
+  $("status-detail").innerHTML = (detail || "") +
+    (url ? ` <a href="${esc(url)}" target="_blank" rel="noopener">View the build log</a>` : "");
+  $("status-card").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+async function pollBuild(sha) {
+  showStatus('<span class="spinner"></span>Published — waiting for the site build…',
+    `Commit ${sha.slice(0, 7)}. This usually takes a few minutes.`);
+  const deadline = Date.now() + 15 * 60 * 1000;
+  while (Date.now() < deadline) {
+    await sleep(6000);
+    const { ok, data } = await api("/api/build-status?sha=" + sha);
+    if (!ok || !data) continue;
+    if (data.status === "unknown") {
+      showStatus("Published ✓", "Could not read the build status. Check the site in a few minutes.");
+      return;
+    }
+    if (data.status === "completed") {
+      if (data.conclusion === "success") {
+        showStatus("Published ✓", 'The live catalog is updated. <a href="/chemical.html" target="_blank" rel="noopener">Open the catalog</a>.');
+      } else {
+        showStatus("Build failed ✗",
+          "The live site is untouched and still shows the last working version. Fix the problem and publish again.",
+          data.url);
+      }
+      return;
+    }
+    showStatus('<span class="spinner"></span>Building the catalog…', `Commit ${sha.slice(0, 7)}.`, data.url);
+  }
+  showStatus("Still building…", "Taking longer than expected — check back in a few minutes.");
+}
+
+/* ---------- wiring ---------- */
+function wireDrop(el, onFiles) {
+  el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("hover"); });
+  el.addEventListener("dragleave", () => el.classList.remove("hover"));
+  el.addEventListener("drop", async e => {
+    e.preventDefault(); el.classList.remove("hover");
+    onFiles(await filesFromDataTransfer(e.dataTransfer));
+  });
+}
+$("login-btn").onclick = doLogin;
+$("password").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+$("logout-btn").onclick = doLogout;
+
+$("csv-drop").onclick = () => $("csv-input").click();
+$("csv-input").onchange = e => { setCsv(e.target.files[0]); e.target.value = ""; };
+wireDrop($("csv-drop"), files => setCsv(files.find(f => /\.csv$/i.test(f.name)) || files[0]));
+
+$("pick-files").onclick = e => { e.stopPropagation(); $("img-input").click(); };
+$("pick-folder").onclick = e => { e.stopPropagation(); $("dir-input").click(); };
+$("img-drop").onclick = e => { if (e.target.tagName !== "BUTTON") $("img-input").click(); };
+$("img-input").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
+$("dir-input").onchange = e => { addFiles([...e.target.files]); e.target.value = ""; };
+wireDrop($("img-drop"), addFiles);
+
+$("retry-failed").onclick = () => {
+  for (const item of state.files.values()) {
+    if (item.status === "failed") { item.status = "queued"; item.error = null; item.attempts = 0; state.queue.push(item); renderRow(item); }
+  }
+  pump();
+};
+$("clear-failed").onclick = () => {
+  for (const item of [...state.files.values()]) if (item.status === "failed") removeItem(item);
+};
+$("publish-btn").onclick = doPublish;
+
+window.addEventListener("beforeunload", e => {
+  const c = counts();
+  if (c.pending || state.publishing) { e.preventDefault(); e.returnValue = ""; }
+});
+
+/* ---------- boot ---------- */
+(async () => {
+  const { ok } = await api("/api/session");
+  if (ok) { state.loggedIn = true; $("app-view").classList.remove("hidden"); init(); }
+  else showLogin(false);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+name: Build catalog
+
+# Triggers only on build inputs. The paths deliberately exclude everything this
+# workflow commits (index.html, chemical.html, images/products-normalized/**),
+# so its own commit cannot retrigger it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - items_chemical_master.csv
+      - bullets.csv
+      - "templates/**"
+      - "pages/chemical-upc-v3/**"
+      - build_catalog.py
+      - requirements-catalog.txt
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-catalog
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-catalog.txt
+
+      - run: pip install -r requirements-catalog.txt
+
+      - run: python build_catalog.py
+
+      - name: Commit rebuilt catalog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html chemical.html images/products-normalized
+          if git diff --cached --quiet; then
+            echo "Build outputs unchanged; nothing to commit."
+            exit 0
+          fi
+          git commit -m "Rebuild catalog (auto)"
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            git pull --rebase
+          done
+          git push
