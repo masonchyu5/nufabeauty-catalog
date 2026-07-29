@@ -58,10 +58,24 @@ Redeploy once after saving (env vars only apply to new deployments).
   nothing else catches. Rows are matched by SKU, so reordering the file is
   correctly reported as no change.
 - The CSV columns are `sku, name, upc, item_order, brand, brand_abbrev,
-  brand_order, unit_price, qty_display, image_path`. A file still carrying the
-  retired `category`, `verified` or General-catalog columns (`section`,
+  brand_order, unit_price, qty_display`. A file still carrying the retired
+  `image_path`, `category`, `verified` or General-catalog columns (`section`,
   `section_order`, `group_title`, `group_order`) still publishes — they are
   ignored with a warning — but re-download to get the current columns.
+- **Photos are matched to products by filename**: a product shows the photo
+  whose name matches its SKU, so `CH110612.jpg` is the photo for SKU
+  `CH110612`. Uploading is the whole job — there is no path to type into the
+  CSV. Case does not matter.
+- A different extension is a **different file**, so re-uploading `CH1.jpg` as
+  `CH1.webp` leaves both in the repo. When a SKU has several, the build picks
+  by extension: **jpg › webp › png › jpeg**. The loser is dead weight; step 3
+  labels it "not shown" so you can find and delete it. Re-uploading with the
+  *same* filename replaces the file outright.
+- **Step 3 deletes photos.** Search or tick "Only ones not shown", select, and
+  publish. Deleting removes both the master in `pages/chemical-upc-v3/` and the
+  display copy in `images/products-normalized/`, in the same commit as any CSV
+  or upload changes. A photo is only removed from the display copy directory
+  once no remaining master still derives it.
 - Photos land in `pages/chemical-upc-v3/` — these are the **master copies**,
   and the 900px display images the catalog shows are derived from them by the
   build. Originals upload byte-identical when 4 MB or under; bigger photos are

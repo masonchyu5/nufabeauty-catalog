@@ -38,6 +38,11 @@ CATALOG_DIR = Path(__file__).resolve().parent
 ITEMS_CSV = CATALOG_DIR / "items_chemical_master.csv"
 BULLETS_CSV = CATALOG_DIR / "bullets.csv"
 PAGES_DIR = CATALOG_DIR / "pages"
+# Master product photos, uploaded through the admin page. A product's photo is
+# the master whose filename matches its SKU, so uploading is the whole job --
+# there is no path column in the CSV to keep in sync.
+MASTER_IMAGES_REL = "pages/chemical-upc-v3"
+MASTER_IMAGES_DIR = CATALOG_DIR / MASTER_IMAGES_REL
 TEMPLATES_DIR = CATALOG_DIR / "templates"
 SITE_DIR = CATALOG_DIR
 SITE_IMAGES_DIR = SITE_DIR / "images"
@@ -56,6 +61,10 @@ NORMALIZATION_VERSION = 1
 CHEMICAL_LIMIT: int | None = None
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+# Which master wins when one SKU has several (a re-upload in a different format
+# leaves the old file behind, since a different extension is a different path).
+# Order matters: earlier beats later, so this stays deterministic across builds.
+IMAGE_PREFERENCE = (".jpg", ".webp", ".png", ".jpeg")
 NORMALIZED_IMAGE_SIZE = 900
 NORMALIZED_IMAGE_PADDING = 28
 WHITE_TRIM_THRESHOLD = 14
@@ -376,14 +385,39 @@ def normalized_product_image(src_rel: str, sku: str) -> str | None:
     return f"images/products-normalized/{dest_name}"
 
 
+_master_index: dict[str, str] | None = None
+
+
+def master_image_index() -> dict[str, str]:
+    """Map casefolded SKU -> repo-relative path of that product's master photo.
+
+    Photos are matched to products by filename: CH110612.jpg is the photo for
+    SKU CH110612. That makes an admin-page upload the only step needed to add or
+    replace a photo, with nothing in the CSV to keep in sync. Matching is
+    case-insensitive because the uploader preserves whatever case was typed,
+    and a product with no master simply renders the placeholder.
+    """
+    global _master_index
+    if _master_index is None:
+        best: dict[str, tuple[int, str]] = {}
+        if MASTER_IMAGES_DIR.is_dir():
+            for path in sorted(MASTER_IMAGES_DIR.iterdir()):
+                if not path.is_file() or path.suffix.lower() not in IMAGE_PREFERENCE:
+                    continue
+                rank = IMAGE_PREFERENCE.index(path.suffix.lower())
+                key = path.stem.casefold()
+                if key not in best or rank < best[key][0]:
+                    best[key] = (rank, path.name)
+        _master_index = {k: f"{MASTER_IMAGES_REL}/{name}" for k, (_, name) in best.items()}
+    return _master_index
+
+
 def make_product(row: dict, bullets: dict) -> dict:
     sku = row["sku"]
     upc = _digits(row.get("upc"))
 
-    image_src = None
-    rel = (row.get("image_path") or "").strip()
-    if rel:
-        image_src = normalized_product_image(rel, sku)
+    rel = master_image_index().get((sku or "").strip().casefold())
+    image_src = normalized_product_image(rel, sku) if rel else None
 
     return {
         "sku": sku,

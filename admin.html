@@ -115,6 +115,44 @@
   .dfield .to { color: var(--ok-ink); }
   .dfield .blank { font-style: italic; opacity: .7; }
   .diff-more { padding: 7px 12px; color: var(--muted); font-size: 12.5px; background: #fafaf8; }
+  /* photo gallery / delete */
+  .gal-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .gal-bar input[type=search] {
+    flex: 1; min-width: 180px; font: inherit; padding: 8px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  }
+  .gal-bar .count { color: var(--muted); font-size: 13px; }
+  .gal-bar .chk {
+    display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted);
+    white-space: nowrap; cursor: pointer;
+  }
+  .gallery {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px;
+    max-height: 420px; overflow-y: auto; padding: 4px;
+    border: 1px solid var(--line); border-radius: 8px; background: #fafaf8;
+  }
+  .gtile {
+    position: relative; background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 5px;
+  }
+  .gtile.sel { border-color: var(--err-ink); box-shadow: 0 0 0 2px rgba(160,31,31,.16); background: #fdf5f5; }
+  .gtile img {
+    width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 4px; display: block;
+  }
+  .gtile .gname {
+    font-size: 11px; line-height: 1.3; word-break: break-all; color: var(--ink);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .gtile .gtag { font-size: 10.5px; padding: 1px 6px; border-radius: 99px; align-self: flex-start; }
+  .gtile .gtag.unused { background: var(--warn-bg); color: var(--warn-ink); }
+  .gtile .gtag.used { background: #eef1ee; color: var(--muted); }
+  .gtile .gmark {
+    position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 5px;
+    border: 1px solid var(--line); background: rgba(255,255,255,.92); color: transparent;
+    display: grid; place-items: center; font-size: 13px; font-weight: 700;
+  }
+  .gtile.sel .gmark { background: var(--err-ink); border-color: var(--err-ink); color: #fff; }
+  .gal-empty { padding: 22px; text-align: center; color: var(--muted); font-size: 13.5px; grid-column: 1 / -1; }
   #publish-block { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   #publish-btn { padding: 12px 26px; font-size: 16px; }
   #publish-reasons { color: var(--muted); font-size: 13px; }
@@ -160,7 +198,7 @@
 
   <section class="card">
     <h2>1 · Product data (CSV)</h2>
-    <p class="hint">Optional. The uploaded file fully replaces <code>items_chemical_master.csv</code>, so step&nbsp;3 lists exactly what it changes, adds and removes before anything goes live. Skip this to publish image changes only.</p>
+    <p class="hint">Optional. The uploaded file fully replaces <code>items_chemical_master.csv</code>, so step&nbsp;4 lists exactly what it changes, adds and removes before anything goes live. Skip this to publish image changes only.</p>
     <div class="drop" id="csv-drop">
       Drop the CSV here, or <strong>click to choose a file</strong>
       <input type="file" id="csv-input" accept=".csv,text/csv" class="hidden">
@@ -188,8 +226,22 @@
   </section>
 
   <section class="card">
-    <h2>3 · Review &amp; publish</h2>
+    <h2>3 · Delete photos</h2>
+    <p class="hint">Every photo in the catalog. A product shows the photo whose filename matches its SKU. <strong>“in catalog”</strong> is being shown; <strong>“not shown”</strong> means a photo with a higher-priority extension wins for that SKU (jpg&nbsp;›&nbsp;webp&nbsp;›&nbsp;png&nbsp;›&nbsp;jpeg); <strong>“no product”</strong> means no product has that SKU. The last two are dead weight and safe to delete. Selecting a photo removes it — and its display copy — when you publish.</p>
+    <div class="gal-bar">
+      <input type="search" id="gal-search" placeholder="Search by SKU or filename" autocomplete="off">
+      <label class="chk"><input type="checkbox" id="gal-bad"> Only ones not shown</label>
+      <button id="gal-all">Select all shown</button>
+      <button id="gal-none">Clear selection</button>
+      <span class="count" id="gal-count"></span>
+    </div>
+    <div class="gallery" id="gallery"></div>
+  </section>
+
+  <section class="card">
+    <h2>4 · Review &amp; publish</h2>
     <dl class="review-grid" id="review"></dl>
+    <div id="del-warn"></div>
     <div class="diff" id="diff"></div>
     <div id="publish-block">
       <button class="primary" id="publish-btn" disabled>Publish to live site</button>
@@ -226,17 +278,33 @@ function parseCsv(text) {
   if (field !== "" || row.length) { row.push(field); rows.push(row); }
   return rows;
 }
-function csvImageRefs(text) {
+// A product's photo is the uploaded file whose name matches its SKU, so the
+// question "is this photo used?" is answered by the CSV's SKU column.
+function csvSkus(text) {
   const rows = parseCsv(text).filter(r => r.some(c => c.trim() !== ""));
   if (!rows.length) return new Set();
-  const idx = rows[0].map(h => h.trim()).indexOf("image_path");
+  const idx = rows[0].map(h => h.trim()).indexOf("sku");
   if (idx < 0) return new Set();
-  const refs = new Set();
+  const skus = new Set();
   for (const r of rows.slice(1)) {
-    const rel = (r[idx] || "").trim();
-    if (rel) refs.add(rel.split("/").pop());
+    const sku = (r[idx] || "").trim();
+    if (sku) skus.add(sku.toLowerCase());
   }
-  return refs;
+  return skus;
+}
+// "CH110612.jpg" -> "ch110612"; mirrors imageStem() on the server.
+function imageStem(filename) {
+  const base = String(filename || "").split("/").pop();
+  const dot = base.lastIndexOf(".");
+  return (dot > 0 ? base.slice(0, dot) : base).toLowerCase();
+}
+// Mirrors _slug() in build_catalog.py — names the public display copy.
+function slugify(text) {
+  return String(text || "").trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "untitled";
+}
+function thumbUrl(filename) {
+  return `images/products-normalized/${slugify(imageStem(filename))}.jpg`;
 }
 
 /* ---------- CSV change preview ---------- */
@@ -252,7 +320,6 @@ const DIFF_FIELDS = [
   ["unit_price", "price"],
   ["qty_display", "size"],
   ["upc", "UPC"],
-  ["image_path", "image"],
 ];
 const MAX_DIFF_ROWS = 60;
 
@@ -415,9 +482,12 @@ const CACHE_TTL = 24 * 3600 * 1000;
 const state = {
   loggedIn: false,
   repoImages: new Set(),
-  currentRefs: new Set(),
+  currentSkus: new Set(),  // SKUs in the live CSV, lowercased
+  deleteSel: new Set(),    // repo photo filenames selected for deletion
+  galFilter: "",
+  galBadOnly: false,
   liveCsv: null,      // text of the CSV currently on the live site, for diffing
-  csv: null,          // { name, text, report, refs, diff }
+  csv: null,          // { name, text, report, skus, diff }
   files: new Map(),   // basename -> item
   queue: [],
   running: 0,
@@ -489,8 +559,9 @@ async function init() {
   if (imgs.ok) state.repoImages = new Set(imgs.data.images);
   if (csvRes.ok) {
     state.liveCsv = await csvRes.text();
-    state.currentRefs = csvImageRefs(state.liveCsv);
+    state.currentSkus = csvSkus(state.liveCsv);
   }
+  renderGallery();
   updateUI();
 }
 
@@ -504,10 +575,11 @@ async function setCsv(file) {
   const text = await file.text();
   state.csv = {
     name: file.name, text, report: null,
-    refs: csvImageRefs(text),
+    skus: csvSkus(text),
     diff: computeCsvDiff(state.liveCsv, text),
   };
   $("csv-report").innerHTML = '<div class="msg"><span class="spinner"></span>Checking the file…</div>';
+  renderGallery(); // "in catalog" / "not used" depends on the CSV's SKUs
   await validateCsvNow();
   updateUI();
 }
@@ -766,14 +838,27 @@ function renderFileList() {
 }
 function renderRow(item) {
   if (!item.row) return;
-  const refs = state.csv ? state.csv.refs : state.currentRefs;
+  const skus = state.csv ? state.csv.skus : state.currentSkus;
   item.row.querySelector(".name").textContent = item.name;
   const t1 = item.row.querySelector(".t-exist");
   if (state.repoImages.has(item.name)) { t1.textContent = "replaces existing"; t1.className = "tag t-exist"; }
   else { t1.textContent = "new"; t1.className = "tag t-exist new"; }
   const t2 = item.row.querySelector(".t-ref");
-  if (!refs.has(item.name)) { t2.textContent = "not in CSV"; t2.title = "No product row points at this file yet; it will be stored but not shown."; t2.className = "tag t-ref unref"; }
-  else { t2.textContent = ""; t2.className = "tag t-ref hidden"; }
+  const stem = imageStem(item.name);
+  const winner = winningPhotoFor(stem, [item.name]);
+  if (!skus.has(stem)) {
+    t2.textContent = "no product with this SKU";
+    t2.title = "No product has this SKU, so the photo will be stored but never shown.";
+    t2.className = "tag t-ref unref";
+  } else if (winner && winner !== item.name) {
+    // A different extension is a different file, so the old one survives the
+    // upload and still outranks it. Silent no-op otherwise.
+    t2.textContent = `${winner} still wins`;
+    t2.title = `${winner} already exists for this SKU and takes priority over ${item.name}. Delete it in step 3 to use this one instead.`;
+    t2.className = "tag t-ref unref";
+  } else {
+    t2.textContent = ""; t2.className = "tag t-ref hidden";
+  }
   const st = item.row.querySelector(".st");
   const label = {
     queued: "queued", hashing: "preparing…", uploading: "uploading…",
@@ -785,6 +870,104 @@ function renderRow(item) {
   st.className = "st " + (item.status === "done" ? "done" : item.status === "failed" ? "failed" : "");
   item.row.querySelector(".rm").disabled = item.status === "uploading" || item.status === "hashing";
 }
+/* ---------- photo gallery / delete ---------- */
+// Mirrors IMAGE_PREFERENCE in build_catalog.py: when one SKU has several
+// photos, this decides which the catalog actually shows.
+const IMG_PREF = ["jpg", "webp", "png", "jpeg"];
+function prefRank(name) {
+  const i = IMG_PREF.indexOf(String(name).split(".").pop().toLowerCase());
+  return i < 0 ? IMG_PREF.length : i;
+}
+// stem -> the photo the build would actually show, ignoring ones staged for
+// deletion. Built in one pass: per-tile scanning would be O(n^2) over ~1400
+// photos on every search keystroke.
+function winnerMap(extra) {
+  const best = new Map();
+  const consider = name => {
+    const stem = imageStem(name);
+    const cur = best.get(stem);
+    if (!cur || prefRank(name) < prefRank(cur)) best.set(stem, name);
+  };
+  for (const name of state.repoImages) if (!state.deleteSel.has(name)) consider(name);
+  for (const name of extra || []) consider(name);
+  return best;
+}
+function winningPhotoFor(stem, extra) {
+  return winnerMap(extra).get(stem) || null;
+}
+function uploadedNames() {
+  return [...state.files.values()].filter(i => i.status === "done").map(i => i.name);
+}
+
+// Three states, because "has a matching product" is not the same as "is shown":
+// a .webp left behind by a re-upload as .jpg matches a real SKU but is dead.
+function photoState(name, skus, winners) {
+  const stem = imageStem(name);
+  if (!skus.has(stem)) return { tag: "no product", cls: "unused", bad: true };
+  if (winners.get(stem) === name) return { tag: "in catalog", cls: "used", bad: false };
+  return { tag: "not shown", cls: "unused", bad: true };
+}
+
+const GAL_RENDER_CAP = 300;
+let galShown = [];
+let galBad = 0;
+
+function renderGallery(keepScroll) {
+  const el = $("gallery");
+  const scrollTop = el.scrollTop;
+  const skus = state.csv ? state.csv.skus : state.currentSkus;
+  const winners = winnerMap(uploadedNames());
+  const q = state.galFilter.trim().toLowerCase();
+  const all = [...state.repoImages].sort((a, b) => a.localeCompare(b));
+
+  galBad = all.filter(n => photoState(n, skus, winners).bad).length;
+  galShown = all.filter(n =>
+    (!q || n.toLowerCase().includes(q)) &&
+    (!state.galBadOnly || photoState(n, skus, winners).bad));
+
+  if (!all.length) {
+    el.innerHTML = '<div class="gal-empty">No photos in the catalog yet.</div>';
+  } else if (!galShown.length) {
+    el.innerHTML = `<div class="gal-empty">${state.galBadOnly
+      ? "Every photo is being shown by a product — nothing to clean up."
+      : `No photo matches “${esc(state.galFilter)}”.`}</div>`;
+  } else {
+    const shown = galShown.slice(0, GAL_RENDER_CAP);
+    el.innerHTML = shown.map(name => {
+      const st = photoState(name, skus, winners);
+      return `<div class="gtile${state.deleteSel.has(name) ? " sel" : ""}" data-name="${esc(name)}" title="${esc(name)}">` +
+        '<span class="gmark">✓</span>' +
+        `<img loading="lazy" alt="" src="${esc(thumbUrl(name))}" onerror="this.src='assets/placeholder.svg'">` +
+        `<span class="gname">${esc(name)}</span>` +
+        `<span class="gtag ${st.cls}">${st.tag}</span>` +
+        "</div>";
+    }).join("") + (galShown.length > shown.length
+      ? `<div class="gal-empty">${galShown.length - shown.length} more match — narrow the search to see them.</div>`
+      : "");
+  }
+  if (keepScroll) el.scrollTop = scrollTop;
+  updateGalCount();
+}
+
+function updateGalCount() {
+  const total = state.repoImages.size;
+  const sel = state.deleteSel.size;
+  $("gal-count").textContent =
+    (galShown.length === total ? `${total} photo(s)` : `${galShown.length} of ${total} shown`) +
+    (galBad ? ` · ${galBad} not shown anywhere` : "") +
+    (sel ? ` · ${sel} selected to delete` : "");
+}
+
+function toggleTile(name) {
+  if (state.deleteSel.has(name)) state.deleteSel.delete(name);
+  else state.deleteSel.add(name);
+  // Full re-render, not just this tile: removing the winner for a SKU promotes
+  // whatever was behind it, so other tiles' labels change too.
+  renderGallery(true);
+  for (const item of state.files.values()) renderRow(item);
+  updateUI();
+}
+
 function removeItem(item) {
   const qi = state.queue.indexOf(item);
   if (qi >= 0) state.queue.splice(qi, 1);
@@ -822,21 +1005,34 @@ function updateUI() {
   $("clear-failed").classList.toggle("hidden", !c.failed);
 
   // review
-  const refs = state.csv ? state.csv.refs : state.currentRefs;
+  const skus = state.csv ? state.csv.skus : state.currentSkus;
   let replacing = 0, added = 0, unref = 0;
   for (const item of state.files.values()) {
     if (item.status !== "done") continue;
     if (state.repoImages.has(item.name)) replacing++; else added++;
-    if (!refs.has(item.name)) unref++;
+    if (!skus.has(imageStem(item.name))) unref++;
   }
+  const del = [...state.deleteSel];
+  const uploaded = [...state.files.values()].filter(i => i.status === "done").map(i => i.name);
+  // Only a problem if nothing is left for that SKU once this publish lands --
+  // deleting a .jpg while uploading a .webp for the same product is fine.
+  const delUsed = del.filter(n => skus.has(imageStem(n)) && !winningPhotoFor(imageStem(n), uploaded));
   const rows = [];
   rows.push(["Product data", state.csv
     ? (state.csv.report ? (state.csv.report.ok ? `replace with “${esc(state.csv.name)}” (${state.csv.report.stats.inScopeRows} products)` : `“${esc(state.csv.name)}” has errors — fix and re-drop it`) : "checking…")
     : "unchanged"]);
   rows.push(["Images", c.total
-    ? `${c.done} ready — ${replacing} replace existing photos, ${added} new` + (unref ? ` (${unref} not referenced by the CSV)` : "")
+    ? `${c.done} ready — ${replacing} replace existing photos, ${added} new` + (unref ? ` (${unref} match no product SKU)` : "")
     : "none"]);
+  rows.push(["Photos to delete", del.length ? `${del.length} selected` : "none"]);
   $("review").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+
+  // Deleting the last photo for a SKU leaves that product with a placeholder.
+  $("del-warn").innerHTML = delUsed.length
+    ? `<div class="msg warn">⚠ ${delUsed.length} of the selected photo(s) are the only one for a product that still exists, ` +
+      `so those products will show a placeholder: ${esc(delUsed.slice(0, 8).join(", "))}` +
+      `${delUsed.length > 8 ? ` (+${delUsed.length - 8} more)` : ""}.</div>`
+    : "";
   renderDiff();
 
   // publish gating
@@ -846,7 +1042,7 @@ function updateUI() {
   if (state.csv && state.csv.report && !state.csv.report.ok) reasons.push("fix the CSV errors first");
   if (c.pending) reasons.push(`waiting for ${c.pending} upload(s)`);
   if (c.failed) reasons.push("retry or remove the failed uploads");
-  if (!state.csv && !c.done) reasons.push("nothing to publish yet");
+  if (!state.csv && !c.done && !state.deleteSel.size) reasons.push("nothing to publish yet");
   $("publish-btn").disabled = reasons.length > 0;
   $("publish-reasons").textContent = reasons.join(" · ");
 }
@@ -857,10 +1053,11 @@ async function doPublish() {
   const images = [...state.files.values()]
     .filter(i => i.status === "done")
     .map(i => ({ filename: i.name, sha: i.sha }));
+  const deleteImages = [...state.deleteSel];
   const { ok, status, data } = await api("/api/publish", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ csv: state.csv ? state.csv.text : null, images }),
+    body: JSON.stringify({ csv: state.csv ? state.csv.text : null, images, deleteImages }),
   });
   state.publishing = false;
   if (!ok) {
@@ -875,13 +1072,16 @@ async function doPublish() {
   for (const item of state.files.values()) {
     if (item.status === "done") state.repoImages.add(item.name);
   }
+  for (const name of deleteImages) state.repoImages.delete(name);
+  state.deleteSel.clear();
   if (state.csv) {
-    state.currentRefs = state.csv.refs;
+    state.currentSkus = state.csv.skus;
     state.liveCsv = state.csv.text; // the file just published is now the baseline
     state.csv = null;
     $("csv-report").innerHTML = "";
   }
   for (const item of [...state.files.values()]) removeItem(item);
+  renderGallery();
   updateUI();
   pollBuild(data.commit);
 }
@@ -954,11 +1154,29 @@ $("retry-failed").onclick = () => {
 $("clear-failed").onclick = () => {
   for (const item of [...state.files.values()]) if (item.status === "failed") removeItem(item);
 };
+$("gal-search").addEventListener("input", e => { state.galFilter = e.target.value; renderGallery(); });
+$("gal-bad").addEventListener("change", e => { state.galBadOnly = e.target.checked; renderGallery(); });
+$("gallery").addEventListener("click", e => {
+  const tile = e.target.closest(".gtile");
+  if (tile) toggleTile(tile.dataset.name);
+});
+$("gal-all").onclick = () => {
+  for (const name of galShown) state.deleteSel.add(name);
+  renderGallery();
+  for (const item of state.files.values()) renderRow(item);
+  updateUI();
+};
+$("gal-none").onclick = () => {
+  state.deleteSel.clear();
+  renderGallery();
+  for (const item of state.files.values()) renderRow(item);
+  updateUI();
+};
 $("publish-btn").onclick = doPublish;
 
 window.addEventListener("beforeunload", e => {
   const c = counts();
-  if (c.pending || state.publishing) { e.preventDefault(); e.returnValue = ""; }
+  if (c.pending || state.publishing || state.deleteSel.size) { e.preventDefault(); e.returnValue = ""; }
 });
 
 /* ---------- boot ---------- */

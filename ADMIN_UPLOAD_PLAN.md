@@ -16,10 +16,10 @@ into the repo root, which is then committed by hand:
 
 | Input | Required | Notes |
 |---|---|---|
-| `items_chemical_master.csv` | yes | 1,612 rows, all Chemical. Columns: `sku,name,upc,item_order,brand,brand_abbrev,brand_order,unit_price,qty_display,image_path`. Rows with an empty `brand`, `brand_abbrev` or `brand_order` are skipped (`in_scope()` in `build_catalog.py`) |
+| `items_chemical_master.csv` | yes | 1,612 rows, all Chemical. Columns: `sku,name,upc,item_order,brand,brand_abbrev,brand_order,unit_price,qty_display`. Rows with an empty `brand`, `brand_abbrev` or `brand_order` are skipped (`in_scope()` in `build_catalog.py`) |
 | `bullets.csv` | no | `sku,order,text`; absent → no bullets |
 | `templates/{index,chemical,base,_page_chemical}.html` | yes | Jinja2 |
-| `pages/chemical-upc-v3/*.jpg` | per-row | Located via the CSV's `image_path` column |
+| `pages/chemical-upc-v3/*.jpg` | per-row | Matched to products by filename stem == SKU (`master_image_index()`); ties broken by `IMAGE_PREFERENCE` |
 
 | Output | Notes |
 |---|---|

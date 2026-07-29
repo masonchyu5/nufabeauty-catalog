@@ -1,5 +1,3 @@
-import { IMAGES_DIR } from "./github.js";
-
 // Column set build_catalog.py reads. "Required" means the build breaks or
 // silently drops data without it.
 const REQUIRED_HEADERS = [
@@ -12,13 +10,13 @@ const REQUIRED_HEADERS = [
   "brand_order",
   "unit_price",
   "qty_display",
-  "image_path",
 ];
 // Columns the chemical CSV used to carry: the General catalog's layout fields,
-// a `category` discriminator back when both catalogs shared one file, and an
-// unused data-entry flag. A CSV exported before that cleanup still publishes
-// correctly — these are ignored, with a note so the admin knows the file is
-// stale. Anything else unrecognized gets the generic warning.
+// a `category` discriminator back when both catalogs shared one file, an unused
+// data-entry flag, and `image_path` from before photos were matched to products
+// by filename. A CSV exported before those cleanups still publishes correctly --
+// these are ignored, with a note so the admin knows the file is stale. Anything
+// else unrecognized gets the generic warning.
 const RETIRED_HEADERS = new Set([
   "section",
   "section_order",
@@ -26,10 +24,35 @@ const RETIRED_HEADERS = new Set([
   "group_order",
   "verified",
   "category",
+  "image_path",
 ]);
 const KNOWN_HEADERS = new Set([...REQUIRED_HEADERS, ...RETIRED_HEADERS]);
 
 const MAX_LISTED_ROWS = 15;
+
+// Mirrors _slug() in build_catalog.py, which names every display copy.
+export function slugify(text) {
+  const out = String(text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return out || "untitled";
+}
+
+// "pages/chemical-upc-v3/CH110612.jpg" -> "ch110612". A master's stem is the
+// SKU of the product it belongs to; matching is case-insensitive because the
+// uploader preserves whatever case was typed.
+export function imageStem(filename) {
+  const base = String(filename || "").split("/").pop();
+  const dot = base.lastIndexOf(".");
+  return (dot > 0 ? base.slice(0, dot) : base).toLowerCase();
+}
+
+// The display copy build_catalog.py derives from a given master.
+export function normalizedNameFor(filename) {
+  return `${slugify(imageStem(filename))}.jpg`;
+}
 
 export function parseCsv(text) {
   const src = text.startsWith("\uFEFF") ? text.slice(1) : text;
@@ -78,13 +101,13 @@ function listRows(rowNumbers) {
   return more > 0 ? `${shown} (+${more} more)` : shown;
 }
 
-export function csvImageBasenames(records) {
-  const names = new Set();
-  for (const rec of records) {
-    const rel = (rec.image_path || "").trim();
-    if (rel) names.add(rel.split("/").pop());
-  }
-  return names;
+// SKUs that have a photo available, given what is in the repo plus whatever is
+// being uploaded alongside this CSV.
+export function availablePhotoStems(repoImages, batchImages) {
+  const stems = new Set();
+  for (const name of repoImages) stems.add(imageStem(name));
+  for (const name of batchImages) stems.add(imageStem(name));
+  return stems;
 }
 
 export function csvRecords(text) {
@@ -192,37 +215,17 @@ export function validateCsv(text, { repoImages = new Set(), batchImages = new Se
     warnings.push(`${badUpc} row(s) have a UPC that is not 12 or 13 digits; no barcode will render.`);
   }
 
-  const noImagePath = inScope.filter((r) => !r.image_path).length;
-  if (noImagePath) {
-    warnings.push(`${noImagePath} row(s) have no image_path and will show no product photo.`);
-  }
-
-  const outsideDir = [];
-  const missingFile = [];
-  for (const r of inScope) {
-    const rel = r.image_path;
-    if (!rel) continue;
-    if (!rel.startsWith(`${IMAGES_DIR}/`)) {
-      outsideDir.push(r.__row);
-      continue;
-    }
-    const base = rel.slice(IMAGES_DIR.length + 1);
-    if (base.includes("/") || (!repoImages.has(base) && !batchImages.has(base))) {
-      missingFile.push(`row ${r.__row}: ${rel}`);
-    }
-  }
-  if (outsideDir.length) {
+  // A product's photo is the uploaded master whose filename matches its SKU,
+  // so the only thing to check is whether one exists yet.
+  const available = availablePhotoStems(repoImages, batchImages);
+  const noPhoto = inScope.filter((r) => r.sku && !available.has(r.sku.toLowerCase()));
+  if (noPhoto.length) {
     warnings.push(
-      `image_path outside ${IMAGES_DIR}/ (cannot verify the file exists): rows ${listRows(outsideDir)}`
+      `${noPhoto.length} product(s) have no uploaded photo and will show a placeholder. ` +
+        "Upload a photo named after the SKU to fix that."
     );
   }
-  if (missingFile.length) {
-    warnings.push(
-      `Image file not found in the repo or this upload batch (product will show no photo): ${listRows(missingFile)}`
-    );
-  }
-
-  stats.referencedImages = csvImageBasenames(inScope).size;
+  stats.withPhoto = inScope.length - noPhoto.length;
 
   return { ok: errors.length === 0, errors, warnings, stats };
 }

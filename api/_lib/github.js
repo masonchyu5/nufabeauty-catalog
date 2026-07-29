@@ -1,7 +1,13 @@
 const API = process.env.GH_API_URL || "https://api.github.com";
 
 export const IMAGES_DIR = "pages/chemical-upc-v3";
+// Display copies build_catalog.py derives from the masters. Deleting a master
+// has to take its derivative too, or the repo keeps the bytes of every photo
+// ever removed -- nothing in the build ever unlinks from this directory.
+export const NORMALIZED_DIR = "images/products-normalized";
 export const CSV_PATH = "items_chemical_master.csv";
+
+const IMAGE_EXT = /\.(jpe?g|png|webp)$/i;
 
 function repoSlug() {
   const repo = process.env.GH_REPO;
@@ -50,9 +56,9 @@ async function getCommitTreeSha(commitSha) {
   return commit.tree.sha;
 }
 
-export async function listRepoImageNames() {
+async function listDirBlobs(dir) {
   let treeSha = await getCommitTreeSha(await getMainHead());
-  for (const segment of IMAGES_DIR.split("/")) {
+  for (const segment of dir.split("/")) {
     const tree = await gh(`/git/trees/${treeSha}`);
     const entry = (tree.tree || []).find((e) => e.path === segment && e.type === "tree");
     if (!entry) return [];
@@ -62,12 +68,22 @@ export async function listRepoImageNames() {
   return (tree.tree || []).filter((e) => e.type === "blob").map((e) => e.path);
 }
 
+// Only actual photos: the directory also holds a stray helper script, and
+// listing it as a deletable "image" would be confusing.
+export async function listRepoImageNames() {
+  return (await listDirBlobs(IMAGES_DIR)).filter((name) => IMAGE_EXT.test(name));
+}
+
+export async function listNormalizedNames() {
+  return listDirBlobs(NORMALIZED_DIR);
+}
+
 export async function getCsvContent() {
   const body = await gh(`/contents/${encodeURIComponent(CSV_PATH)}?ref=main`);
   return Buffer.from(body.content, "base64").toString("utf8");
 }
 
-export async function commitToMain({ csv, images, message }) {
+export async function commitToMain({ csv, images, deletions = [], message }) {
   const parent = await getMainHead();
   const baseTree = await getCommitTreeSha(parent);
 
@@ -77,6 +93,12 @@ export async function commitToMain({ csv, images, message }) {
     type: "blob",
     sha,
   }));
+  // A null sha removes the path from the new tree. GitHub rejects the whole
+  // request if the path is not in base_tree, so callers must only pass paths
+  // they have confirmed exist.
+  for (const path of deletions) {
+    entries.push({ path, mode: "100644", type: "blob", sha: null });
+  }
   if (csv != null) {
     entries.push({ path: CSV_PATH, mode: "100644", type: "blob", content: csv });
   }
