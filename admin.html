@@ -198,7 +198,7 @@
 
   <section class="card">
     <h2>1 · Product data (CSV)</h2>
-    <p class="hint">Optional. The uploaded file fully replaces <code>items_chemical_master.csv</code>, so step&nbsp;4 lists exactly what it changes, adds and removes before anything goes live. Skip this to publish image changes only.</p>
+    <p class="hint">Optional. Replaces the whole file — step&nbsp;4 lists every change first. Skip to publish photo changes only.</p>
     <div class="drop" id="csv-drop">
       Drop the CSV here, or <strong>click to choose a file</strong>
       <input type="file" id="csv-input" accept=".csv,text/csv" class="hidden">
@@ -208,7 +208,7 @@
 
   <section class="card">
     <h2>2 · Product images</h2>
-    <p class="hint">Drop individual photos or a whole folder. These become the master copies the catalog is built from — originals are kept as-is (photos over 4&nbsp;MB are shrunk just enough to fit the upload limit). A file with the same name as one already in the catalog replaces it; new names are added and used once the CSV refers to them. Accepted: .jpg, .jpeg, .png, .webp. Uploads start immediately and resume if the page reloads.</p>
+    <p class="hint"><strong>Name each photo after its SKU</strong> — <code>CH110612.jpg</code> is the photo for <code>CH110612</code>. The same filename replaces the existing photo; a different extension leaves both, and only one wins. Accepts .jpg, .jpeg, .png, .webp.</p>
     <div class="drop" id="img-drop">
       Drop photos or a folder here, or
       <strong><button class="link" id="pick-files">choose files</button></strong> /
@@ -227,7 +227,7 @@
 
   <section class="card">
     <h2>3 · Delete photos</h2>
-    <p class="hint">Every photo in the catalog. A product shows the photo whose filename matches its SKU. <strong>“in catalog”</strong> is being shown; <strong>“not shown”</strong> means a photo with a higher-priority extension wins for that SKU (jpg&nbsp;›&nbsp;webp&nbsp;›&nbsp;png&nbsp;›&nbsp;jpeg); <strong>“no product”</strong> means no product has that SKU. The last two are dead weight and safe to delete. Selecting a photo removes it — and its display copy — when you publish.</p>
+    <p class="hint"><strong>“not shown”</strong> (another extension wins for that SKU) and <strong>“no product”</strong> (no product has that SKU) appear nowhere in the catalog — safe to delete. Selected photos are removed when you publish.</p>
     <div class="gal-bar">
       <input type="search" id="gal-search" placeholder="Search by SKU or filename" autocomplete="off">
       <label class="chk"><input type="checkbox" id="gal-bad"> Only ones not shown</label>
