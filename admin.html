@@ -1027,12 +1027,26 @@ function updateUI() {
   rows.push(["Photos to delete", del.length ? `${del.length} selected` : "none"]);
   $("review").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
 
+  // One path cannot be both written and removed in a single commit, so the
+  // server rejects this. Catch it here rather than after the Publish click --
+  // and note that the upload alone already does what they want.
+  const conflicts = del.filter(n => {
+    const f = state.files.get(n);
+    return f && f.status === "done";
+  });
+  const notes = [];
+  if (conflicts.length) {
+    notes.push(`<div class="msg err">✗ ${esc(conflicts.join(", "))} ${conflicts.length === 1 ? "is" : "are"} ` +
+      "being uploaded and deleted at the same time. Uploading a photo with the same filename already replaces it, " +
+      "so clear it from the deletion list above.</div>");
+  }
   // Deleting the last photo for a SKU leaves that product with a placeholder.
-  $("del-warn").innerHTML = delUsed.length
-    ? `<div class="msg warn">⚠ ${delUsed.length} of the selected photo(s) are the only one for a product that still exists, ` +
+  if (delUsed.length) {
+    notes.push(`<div class="msg warn">⚠ ${delUsed.length} of the selected photo(s) are the only one for a product that still exists, ` +
       `so those products will show a placeholder: ${esc(delUsed.slice(0, 8).join(", "))}` +
-      `${delUsed.length > 8 ? ` (+${delUsed.length - 8} more)` : ""}.</div>`
-    : "";
+      `${delUsed.length > 8 ? ` (+${delUsed.length - 8} more)` : ""}.</div>`);
+  }
+  $("del-warn").innerHTML = notes.join("");
   renderDiff();
 
   // publish gating
@@ -1042,6 +1056,7 @@ function updateUI() {
   if (state.csv && state.csv.report && !state.csv.report.ok) reasons.push("fix the CSV errors first");
   if (c.pending) reasons.push(`waiting for ${c.pending} upload(s)`);
   if (c.failed) reasons.push("retry or remove the failed uploads");
+  if (conflicts.length) reasons.push("same file is being uploaded and deleted");
   if (!state.csv && !c.done && !state.deleteSel.size) reasons.push("nothing to publish yet");
   $("publish-btn").disabled = reasons.length > 0;
   $("publish-reasons").textContent = reasons.join(" · ");
