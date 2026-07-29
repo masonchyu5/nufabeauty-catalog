@@ -1,7 +1,7 @@
 import { IMAGES_DIR } from "./github.js";
 
 // Column set build_catalog.py reads. "Required" means the build breaks or
-// silently drops data without it; the rest are known-but-optional columns.
+// silently drops data without it.
 const REQUIRED_HEADERS = [
   "sku",
   "name",
@@ -13,16 +13,21 @@ const REQUIRED_HEADERS = [
   "unit_price",
   "qty_display",
   "image_path",
-  "category",
 ];
-const KNOWN_HEADERS = new Set([
-  ...REQUIRED_HEADERS,
+// Columns the chemical CSV used to carry: the General catalog's layout fields,
+// a `category` discriminator back when both catalogs shared one file, and an
+// unused data-entry flag. A CSV exported before that cleanup still publishes
+// correctly — these are ignored, with a note so the admin knows the file is
+// stale. Anything else unrecognized gets the generic warning.
+const RETIRED_HEADERS = new Set([
   "section",
   "section_order",
   "group_title",
   "group_order",
   "verified",
+  "category",
 ]);
+const KNOWN_HEADERS = new Set([...REQUIRED_HEADERS, ...RETIRED_HEADERS]);
 
 const MAX_LISTED_ROWS = 15;
 
@@ -111,22 +116,30 @@ export function validateCsv(text, { repoImages = new Set(), batchImages = new Se
     errors.push(`Missing or renamed column(s): ${missing.join(", ")}`);
     return { ok: false, errors, warnings, stats };
   }
+  const retired = headers.filter((h) => h && RETIRED_HEADERS.has(h));
+  if (retired.length) {
+    warnings.push(
+      `Column(s) no longer part of the chemical catalog, ignored: ${retired.join(", ")}. ` +
+        "Download the current CSV to get the up-to-date columns."
+    );
+  }
   const unknown = headers.filter((h) => h && !KNOWN_HEADERS.has(h));
   if (unknown.length) {
     warnings.push(`Unrecognized column(s), ignored by the build: ${unknown.join(", ")}`);
   }
 
-  const chemical = records.filter((r) => r.category === "Chemical");
-  const inScope = chemical.filter((r) => r.brand && r.brand_abbrev && r.brand_order);
+  // Every row in this file is a chemical item; only missing brand metadata can
+  // put one out of scope. Must stay in step with in_scope() in build_catalog.py.
+  const inScope = records.filter((r) => r.brand && r.brand_abbrev && r.brand_order);
 
   stats.totalRows = records.length;
-  stats.chemicalRows = chemical.length;
+  stats.chemicalRows = records.length;
   stats.inScopeRows = inScope.length;
-  stats.skippedMissingBrand = chemical.length - inScope.length;
+  stats.skippedMissingBrand = records.length - inScope.length;
 
   if (!inScope.length) {
     errors.push(
-      'No publishable rows: nothing has category "Chemical" plus brand, brand_abbrev, and brand_order.'
+      "No publishable rows: no row has all of brand, brand_abbrev, and brand_order filled in."
     );
     return { ok: false, errors, warnings, stats };
   }

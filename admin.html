@@ -86,6 +86,35 @@
   .review-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 14px; margin-bottom: 12px; }
   .review-grid dt { color: var(--muted); }
   .review-grid dd { margin: 0; }
+  /* CSV change preview */
+  .diff { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 14px; }
+  .diff:empty { display: none; }
+  .diff-head {
+    padding: 9px 12px; background: #fafaf8; border-bottom: 1px solid var(--line);
+    font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline;
+  }
+  .diff-head .title { font-weight: 600; margin-right: auto; }
+  .diff-head .n { white-space: nowrap; color: var(--muted); }
+  .diff-head .n b { color: var(--ink); font-weight: 600; }
+  .diff-head .n.add b { color: #1a5da0; }
+  .diff-head .n.del b { color: var(--err-ink); }
+  .diff .msg { margin: 0; border-radius: 0; border-bottom: 1px solid var(--line); }
+  .diff-list { max-height: 320px; overflow-y: auto; font-size: 13px; }
+  .drow { padding: 7px 12px; border-bottom: 1px solid var(--line); }
+  .drow:last-child { border-bottom: none; }
+  .dhead { display: flex; gap: 10px; align-items: baseline; }
+  .dhead .mark { flex: none; width: 10px; font-weight: 700; color: var(--muted); }
+  .drow.add .mark { color: #1a5da0; }
+  .drow.del .mark { color: var(--err-ink); }
+  .dhead .dsku { flex: none; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .dhead .dname { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dfields { margin: 3px 0 0 20px; }
+  .dfield { display: block; color: var(--muted); line-height: 1.7; }
+  .dfield b { font-weight: 600; color: var(--ink); }
+  .dfield .from { text-decoration: line-through; }
+  .dfield .to { color: var(--ok-ink); }
+  .dfield .blank { font-style: italic; opacity: .7; }
+  .diff-more { padding: 7px 12px; color: var(--muted); font-size: 12.5px; background: #fafaf8; }
   #publish-block { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   #publish-btn { padding: 12px 26px; font-size: 16px; }
   #publish-reasons { color: var(--muted); font-size: 13px; }
@@ -131,7 +160,7 @@
 
   <section class="card">
     <h2>1 · Product data (CSV)</h2>
-    <p class="hint">Optional. The uploaded file fully replaces <code>items_chemical_master.csv</code>. Skip this to publish image changes only.</p>
+    <p class="hint">Optional. The uploaded file fully replaces <code>items_chemical_master.csv</code>, so step&nbsp;3 lists exactly what it changes, adds and removes before anything goes live. Skip this to publish image changes only.</p>
     <div class="drop" id="csv-drop">
       Drop the CSV here, or <strong>click to choose a file</strong>
       <input type="file" id="csv-input" accept=".csv,text/csv" class="hidden">
@@ -161,6 +190,7 @@
   <section class="card">
     <h2>3 · Review &amp; publish</h2>
     <dl class="review-grid" id="review"></dl>
+    <div class="diff" id="diff"></div>
     <div id="publish-block">
       <button class="primary" id="publish-btn" disabled>Publish to live site</button>
       <span id="publish-reasons"></span>
@@ -209,6 +239,169 @@ function csvImageRefs(text) {
   return refs;
 }
 
+/* ---------- CSV change preview ---------- */
+// Fields whose value the shopper actually sees. Compared as raw trimmed text,
+// with one exception (upc) noted below, so that an Excel round-trip which
+// rewrites a price as 3.4 instead of 3.40 shows up as the real change it is.
+const DIFF_FIELDS = [
+  ["name", "name"],
+  ["brand", "brand"],
+  ["brand_abbrev", "brand abbrev"],
+  ["brand_order", "brand order"],
+  ["item_order", "item order"],
+  ["unit_price", "price"],
+  ["qty_display", "size"],
+  ["upc", "UPC"],
+  ["image_path", "image"],
+];
+const MAX_DIFF_ROWS = 60;
+
+function csvRecords(text) {
+  const rows = parseCsv(text).filter(r => r.some(c => c.trim() !== ""));
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1).map(cells => {
+    const rec = {};
+    headers.forEach((h, i) => { if (h) rec[h] = (cells[i] || "").trim(); });
+    return rec;
+  });
+}
+
+// The build strips non-digits from upc, so the leading apostrophe Excel uses to
+// protect the leading zero is not a real difference.
+function diffValue(key, raw) {
+  const v = (raw || "").trim();
+  return key === "upc" ? v.replace(/\D+/g, "") : v;
+}
+
+function rowSignature(row) {
+  return DIFF_FIELDS.map(([key]) => diffValue(key, row[key])).join("");
+}
+
+// Keyed on SKU, not row position: the build sorts by brand_order/item_order, so
+// moving a row within the file changes nothing and must not show as a change.
+// SKUs are not unique in practice (~26 repeat), so within one SKU the rows that
+// are identical in every compared field are cancelled off against each other
+// first; only what is left over gets paired up and reported as a change.
+function computeCsvDiff(liveText, nextText) {
+  if (typeof liveText !== "string" || !liveText.trim()) return null;
+  const index = recs => {
+    const m = new Map();
+    for (const r of recs) {
+      const sku = (r.sku || "").trim();
+      if (!m.has(sku)) m.set(sku, []);
+      m.get(sku).push(r);
+    }
+    return m;
+  };
+  let before, after;
+  try {
+    before = index(csvRecords(liveText));
+    after = index(csvRecords(nextText));
+  } catch { return null; }
+
+  const added = [], removed = [], changed = [];
+  let unchanged = 0;
+  for (const sku of new Set([...before.keys(), ...after.keys()])) {
+    const a = before.get(sku) || [], b = after.get(sku) || [];
+
+    const bySig = new Map();
+    a.forEach((r, i) => {
+      const s = rowSignature(r);
+      if (!bySig.has(s)) bySig.set(s, []);
+      bySig.get(s).push(i);
+    });
+    const consumed = new Set();
+    const newRows = [];
+    for (const r of b) {
+      const bucket = bySig.get(rowSignature(r));
+      if (bucket && bucket.length) { consumed.add(bucket.shift()); unchanged++; }
+      else newRows.push(r);
+    }
+    const oldRows = a.filter((_, i) => !consumed.has(i));
+
+    for (let i = 0; i < Math.max(oldRows.length, newRows.length); i++) {
+      const oldRow = oldRows[i], newRow = newRows[i];
+      if (!oldRow) { added.push({ sku, name: newRow.name || "" }); continue; }
+      if (!newRow) { removed.push({ sku, name: oldRow.name || "" }); continue; }
+      const fields = [];
+      for (const [key, label] of DIFF_FIELDS) {
+        if (diffValue(key, oldRow[key]) !== diffValue(key, newRow[key])) {
+          fields.push({ label, from: (oldRow[key] || "").trim(), to: (newRow[key] || "").trim() });
+        }
+      }
+      changed.push({ sku, name: newRow.name || oldRow.name || "", fields });
+    }
+  }
+  const bySku = (x, y) => x.sku.localeCompare(y.sku);
+  removed.sort(bySku); added.sort(bySku); changed.sort(bySku);
+  return { added, removed, changed, unchanged, liveRows: [...before.values()].reduce((n, l) => n + l.length, 0) };
+}
+
+function diffCell(text) {
+  return text ? esc(text) : '<span class="blank">(blank)</span>';
+}
+
+// updateUI() runs on every upload tick; re-rendering would fight the admin for
+// the scroll position of a long change list. The loaded-CSV object is replaced
+// wholesale whenever the content changes, so its identity is the render key.
+let renderedCsvRef;
+function renderDiff() {
+  const el = $("diff");
+  if (renderedCsvRef === state.csv) return;
+  renderedCsvRef = state.csv;
+  if (!state.csv) { el.innerHTML = ""; return; }
+  const d = state.csv.diff;
+  if (!d) {
+    el.innerHTML = '<div class="diff-head"><span class="title">Changes vs live</span></div>' +
+      '<div class="msg warn">⚠ Could not read the live CSV to compare against, so no change preview is available. ' +
+      'The checks above still apply.</div>';
+    return;
+  }
+  const total = d.added.length + d.removed.length + d.changed.length;
+  const head = '<div class="diff-head"><span class="title">Changes vs live</span>' +
+    `<span class="n"><b>${d.changed.length}</b> changed</span>` +
+    `<span class="n add"><b>${d.added.length}</b> added</span>` +
+    `<span class="n del"><b>${d.removed.length}</b> removed</span>` +
+    `<span class="n"><b>${d.unchanged}</b> unchanged</span></div>`;
+
+  if (!total) {
+    el.innerHTML = head + '<div class="msg ok">✓ This file matches what is already live — publishing it changes no product data.</div>';
+    return;
+  }
+
+  const bits = [head];
+  // Wholesale row loss is the failure mode a bad spreadsheet save produces, and
+  // it is the one thing the per-field checks cannot see.
+  if (d.removed.length && d.liveRows && d.removed.length >= Math.max(10, d.liveRows * 0.05)) {
+    bits.push(`<div class="msg err">✗ This removes ${d.removed.length} of ${d.liveRows} products ` +
+      "from the catalog. If that was not intentional, do not publish — re-download the current CSV and redo your edits.</div>");
+  }
+
+  const rows = [];
+  for (const r of d.removed) {
+    rows.push(`<div class="drow del"><div class="dhead"><span class="mark">−</span>` +
+      `<span class="dsku">${esc(r.sku || "(no SKU)")}</span><span class="dname">${esc(r.name)}</span></div></div>`);
+  }
+  for (const r of d.added) {
+    rows.push(`<div class="drow add"><div class="dhead"><span class="mark">+</span>` +
+      `<span class="dsku">${esc(r.sku || "(no SKU)")}</span><span class="dname">${esc(r.name)}</span></div></div>`);
+  }
+  for (const r of d.changed) {
+    const fields = r.fields.map(f =>
+      `<span class="dfield"><b>${esc(f.label)}</b> <span class="from">${diffCell(f.from)}</span> → <span class="to">${diffCell(f.to)}</span></span>`
+    ).join("");
+    rows.push(`<div class="drow chg"><div class="dhead"><span class="mark">~</span>` +
+      `<span class="dsku">${esc(r.sku || "(no SKU)")}</span><span class="dname">${esc(r.name)}</span></div>` +
+      `<div class="dfields">${fields}</div></div>`);
+  }
+  bits.push(`<div class="diff-list">${rows.slice(0, MAX_DIFF_ROWS).join("")}</div>`);
+  if (rows.length > MAX_DIFF_ROWS) {
+    bits.push(`<div class="diff-more">+ ${rows.length - MAX_DIFF_ROWS} more change(s) not shown.</div>`);
+  }
+  el.innerHTML = bits.join("");
+}
+
 /* ---------- state ---------- */
 const IMG_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(jpg|jpeg|png|webp)$/i;
 const MAX_BYTES = 4 * 1024 * 1024;      // server-side upload limit
@@ -223,7 +416,8 @@ const state = {
   loggedIn: false,
   repoImages: new Set(),
   currentRefs: new Set(),
-  csv: null,          // { name, text, report, refs }
+  liveCsv: null,      // text of the CSV currently on the live site, for diffing
+  csv: null,          // { name, text, report, refs, diff }
   files: new Map(),   // basename -> item
   queue: [],
   running: 0,
@@ -293,7 +487,10 @@ async function init() {
     fetch("/api/csv", { credentials: "same-origin" }),
   ]);
   if (imgs.ok) state.repoImages = new Set(imgs.data.images);
-  if (csvRes.ok) state.currentRefs = csvImageRefs(await csvRes.text());
+  if (csvRes.ok) {
+    state.liveCsv = await csvRes.text();
+    state.currentRefs = csvImageRefs(state.liveCsv);
+  }
   updateUI();
 }
 
@@ -305,7 +502,11 @@ async function setCsv(file) {
     return;
   }
   const text = await file.text();
-  state.csv = { name: file.name, text, report: null, refs: csvImageRefs(text) };
+  state.csv = {
+    name: file.name, text, report: null,
+    refs: csvImageRefs(text),
+    diff: computeCsvDiff(state.liveCsv, text),
+  };
   $("csv-report").innerHTML = '<div class="msg"><span class="spinner"></span>Checking the file…</div>';
   await validateCsvNow();
   updateUI();
@@ -636,6 +837,7 @@ function updateUI() {
     ? `${c.done} ready — ${replacing} replace existing photos, ${added} new` + (unref ? ` (${unref} not referenced by the CSV)` : "")
     : "none"]);
   $("review").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  renderDiff();
 
   // publish gating
   const reasons = [];
@@ -673,7 +875,12 @@ async function doPublish() {
   for (const item of state.files.values()) {
     if (item.status === "done") state.repoImages.add(item.name);
   }
-  if (state.csv) { state.currentRefs = state.csv.refs; state.csv = null; $("csv-report").innerHTML = ""; }
+  if (state.csv) {
+    state.currentRefs = state.csv.refs;
+    state.liveCsv = state.csv.text; // the file just published is now the baseline
+    state.csv = null;
+    $("csv-report").innerHTML = "";
+  }
   for (const item of [...state.files.values()]) removeItem(item);
   updateUI();
   pollBuild(data.commit);

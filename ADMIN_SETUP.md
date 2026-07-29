@@ -51,6 +51,17 @@ Redeploy once after saving (env vars only apply to new deployments).
 - **CSV upload fully replaces** `items_chemical_master.csv` — there is no
   row-level merge. "Download current CSV" on the admin page always gives the
   live version to edit from.
+- Because the replace is wholesale, step 3 shows a **"Changes vs live" panel**:
+  how many products the uploaded file changes, adds and removes, and the exact
+  field-level before/after for each. Read it before publishing — a spreadsheet
+  that silently dropped rows shows up here as a large "removed" count, which
+  nothing else catches. Rows are matched by SKU, so reordering the file is
+  correctly reported as no change.
+- The CSV columns are `sku, name, upc, item_order, brand, brand_abbrev,
+  brand_order, unit_price, qty_display, image_path`. A file still carrying the
+  retired `category`, `verified` or General-catalog columns (`section`,
+  `section_order`, `group_title`, `group_order`) still publishes — they are
+  ignored with a warning — but re-download to get the current columns.
 - Photos land in `pages/chemical-upc-v3/` — these are the **master copies**,
   and the 900px display images the catalog shows are derived from them by the
   build. Originals upload byte-identical when 4 MB or under; bigger photos are

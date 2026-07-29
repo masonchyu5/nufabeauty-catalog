@@ -226,14 +226,20 @@ def has_chemical_brand_metadata(row: dict[str, str]) -> bool:
 
 
 def in_scope(rows: list[dict[str, str]]) -> tuple[list[dict], dict[str, int]]:
-    chemical_all = [r for r in rows if (r.get("category") or "").strip() == "Chemical"]
-    chemical = [r for r in chemical_all if has_chemical_brand_metadata(r)]
+    """Every row in items_chemical_master.csv is a Chemical item.
+
+    The file used to carry a `category` column plus the General catalog's
+    columns, and this filtered on category == "Chemical". Both catalogs now get
+    their own master CSV, so the only thing that can put a row out of scope is
+    missing brand metadata (which would break page grouping).
+    """
+    chemical = [r for r in rows if has_chemical_brand_metadata(r)]
     chemical.sort(key=lambda r: (_int(r["brand_order"]), _int(r["item_order"])))
     if CHEMICAL_LIMIT is not None:
         chemical = chemical[:CHEMICAL_LIMIT]
     stats = {
-        "chemical_all": len(chemical_all),
-        "skipped_missing_brand": len(chemical_all) - len(chemical),
+        "chemical_all": len(rows),
+        "skipped_missing_brand": len(rows) - len(chemical),
     }
     return chemical, stats
 
