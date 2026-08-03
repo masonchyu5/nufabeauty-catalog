@@ -40,7 +40,7 @@ export function slugify(text) {
   return out || "untitled";
 }
 
-// "pages/chemical-upc-v3/CH110612.jpg" -> "ch110612". A master's stem is the
+// "source/chemical/master-images/CH110612.jpg" -> "ch110612". A master's stem is the
 // SKU of the product it belongs to; matching is case-insensitive because the
 // uploader preserves whatever case was typed.
 export function imageStem(filename) {

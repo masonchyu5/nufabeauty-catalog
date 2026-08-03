@@ -1,17 +1,15 @@
 name: Build catalog
 
 # Triggers only on build inputs. The paths deliberately exclude everything this
-# workflow commits (index.html, chemical.html, images/products-normalized/**),
+# workflow commits (index.html, chemical.html, images/chemical/**),
 # so its own commit cannot retrigger it.
 on:
   push:
     branches: [main]
     paths:
-      - items_chemical_master.csv
-      - bullets.csv
+      - "source/chemical/**"
       - "templates/**"
-      - "pages/chemical-upc-v3/**"
-      - build_catalog.py
+      - scripts/build_catalog.py
       - requirements-catalog.txt
 
 permissions:
@@ -35,13 +33,13 @@ jobs:
 
       - run: pip install -r requirements-catalog.txt
 
-      - run: python build_catalog.py
+      - run: python scripts/build_catalog.py
 
       - name: Commit rebuilt catalog
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html chemical.html images/products-normalized
+          git add index.html chemical.html images/chemical
           if git diff --cached --quiet; then
             echo "Build outputs unchanged; nothing to commit."
             exit 0

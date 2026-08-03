@@ -1,11 +1,11 @@
 const API = process.env.GH_API_URL || "https://api.github.com";
 
-export const IMAGES_DIR = "pages/chemical-upc-v3";
+export const IMAGES_DIR = "source/chemical/master-images";
 // Display copies build_catalog.py derives from the masters. Deleting a master
 // has to take its derivative too, or the repo keeps the bytes of every photo
 // ever removed -- nothing in the build ever unlinks from this directory.
-export const NORMALIZED_DIR = "images/products-normalized";
-export const CSV_PATH = "items_chemical_master.csv";
+export const NORMALIZED_DIR = "images/chemical";
+export const CSV_PATH = "source/chemical/items.csv";
 
 const IMAGE_EXT = /\.(jpe?g|png|webp)$/i;
 

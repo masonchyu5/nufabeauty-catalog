@@ -304,7 +304,7 @@ function slugify(text) {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "untitled";
 }
 function thumbUrl(filename) {
-  return `images/products-normalized/${slugify(imageStem(filename))}.jpg`;
+  return `images/chemical/${slugify(imageStem(filename))}.jpg`;
 }
 
 /* ---------- CSV change preview ---------- */

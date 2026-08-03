@@ -3,12 +3,9 @@
 .git
 .github
 .gitattributes
-pages
+scripts
 source
 templates
-items_chemical_master.csv
-build_catalog.py
-requirements-catalog.txt
 generalcatalogexample.pdf
 ADMIN_UPLOAD_PLAN.md
 ADMIN_SETUP.md

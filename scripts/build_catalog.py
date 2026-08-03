@@ -34,23 +34,25 @@ except ImportError:  # Product images fall back to raw copies when Pillow is una
     ImageOps = None
 
 
-CATALOG_DIR = Path(__file__).resolve().parent
-ITEMS_CSV = CATALOG_DIR / "items_chemical_master.csv"
-BULLETS_CSV = CATALOG_DIR / "bullets.csv"
+# This script lives in scripts/, so the repo root is one level up.
+CATALOG_DIR = Path(__file__).resolve().parent.parent
+SOURCE_DIR = CATALOG_DIR / "source" / "chemical"
+ITEMS_CSV = SOURCE_DIR / "items.csv"
+BULLETS_CSV = SOURCE_DIR / "bullets.csv"
 PAGES_DIR = CATALOG_DIR / "pages"
 # Master product photos, uploaded through the admin page. A product's photo is
 # the master whose filename matches its SKU, so uploading is the whole job --
 # there is no path column in the CSV to keep in sync.
-MASTER_IMAGES_REL = "pages/chemical-upc-v3"
+MASTER_IMAGES_REL = "source/chemical/master-images"
 MASTER_IMAGES_DIR = CATALOG_DIR / MASTER_IMAGES_REL
 TEMPLATES_DIR = CATALOG_DIR / "templates"
 SITE_DIR = CATALOG_DIR
 SITE_IMAGES_DIR = SITE_DIR / "images"
-NORMALIZED_IMAGES_DIR = SITE_IMAGES_DIR / "products-normalized"
+NORMALIZED_IMAGES_DIR = SITE_IMAGES_DIR / "chemical"
 # Maps normalized file name -> SHA-256 of the master image it was built from.
 # mtimes are useless in CI (git checkouts assign fresh ones), so incremental
-# rebuilds key off content hashes instead. The masters in pages/chemical-upc-v3
-# are canonical; everything under images/products-normalized is derived output.
+# rebuilds key off content hashes instead. The masters in source/chemical are
+# canonical; everything under images/chemical is derived output.
 NORMALIZED_MANIFEST_PATH = NORMALIZED_IMAGES_DIR / ".manifest.json"
 # Bump this whenever normalized_product_image() changes how images look
 # (size, padding, trimming, quality, ...). A version mismatch discards the
@@ -339,7 +341,7 @@ def normalized_product_image(src_rel: str, sku: str) -> str | None:
     manifest = _load_normalized_manifest()
     src_hash = _file_sha256(src)
     if dest.exists() and manifest.get(dest_name) == src_hash:
-        return f"images/products-normalized/{dest_name}"
+        return f"images/chemical/{dest_name}"
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -382,7 +384,7 @@ def normalized_product_image(src_rel: str, sku: str) -> str | None:
         return _copy(src_rel, _image_dest_name(sku, src_rel))
 
     manifest[dest_name] = src_hash
-    return f"images/products-normalized/{dest_name}"
+    return f"images/chemical/{dest_name}"
 
 
 _master_index: dict[str, str] | None = None
