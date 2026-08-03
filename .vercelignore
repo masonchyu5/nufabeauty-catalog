@@ -4,10 +4,9 @@
 .github
 .gitattributes
 pages
+source
 templates
-bullets.csv
 items_chemical_master.csv
-items_general_master.csv
 build_catalog.py
 requirements-catalog.txt
 generalcatalogexample.pdf
