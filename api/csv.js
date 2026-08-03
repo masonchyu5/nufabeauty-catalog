@@ -6,7 +6,10 @@ export default async function handler(req, res) {
   try {
     const csv = await getCsvContent();
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${CSV_PATH}"`);
+    // Basename only: CSV_PATH is a repo path, and browsers reject or mangle a
+    // Content-Disposition filename containing directory separators.
+    const downloadName = CSV_PATH.split("/").pop();
+    res.setHeader("Content-Disposition", `attachment; filename="${downloadName}"`);
     res.status(200).send(csv);
   } catch (err) {
     res.status(err.status === 401 || err.status === 403 ? 502 : 500).json({

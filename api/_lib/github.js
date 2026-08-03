@@ -68,8 +68,8 @@ async function listDirBlobs(dir) {
   return (tree.tree || []).filter((e) => e.type === "blob").map((e) => e.path);
 }
 
-// Only actual photos: the directory also holds a stray helper script, and
-// listing it as a deletable "image" would be confusing.
+// Only actual photos. Defensive: the masters directory should contain nothing
+// else now that the old fetch script lives in scripts/archive/.
 export async function listRepoImageNames() {
   return (await listDirBlobs(IMAGES_DIR)).filter((name) => IMAGE_EXT.test(name));
 }
@@ -79,7 +79,10 @@ export async function listNormalizedNames() {
 }
 
 export async function getCsvContent() {
-  const body = await gh(`/contents/${encodeURIComponent(CSV_PATH)}?ref=main`);
+  // Encode per segment: the Contents API needs real "/" separators, so
+  // encodeURIComponent on the whole path would turn them into %2F and 404.
+  const encodedPath = CSV_PATH.split("/").map(encodeURIComponent).join("/");
+  const body = await gh(`/contents/${encodedPath}?ref=main`);
   return Buffer.from(body.content, "base64").toString("utf8");
 }
 
