@@ -106,10 +106,9 @@
 .g-media {
   background: #fff;
   border: 1px solid var(--color-line-soft);
-  display: grid;
-  place-items: center;
   padding: 4px;
   margin-bottom: 6px;
+  overflow: hidden;
 }
 
 .g-card--hero     .g-media { height: 260px; }
@@ -117,10 +116,14 @@
 .g-card--compact  .g-media { height: 130px; }
 .g-card--wide     .g-media { height: 150px; width: 150px; margin-bottom: 0; }
 
+/* The img element fills the media box exactly; scale-down letterboxes large
+   photos and never upscales small ones. Sizing the element (not max-*) is
+   what guarantees an image can never escape its box and touch the text. */
 .g-media img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: scale-down;
 }
 
 .g-media img.placeholder { opacity: 0.35; }
