@@ -33,6 +33,15 @@
   }
   header.top h1 { font-size: 22px; margin: 0; }
   header.top .actions { display: flex; gap: 10px; align-items: center; }
+  .seg {
+    display: inline-flex; border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden; background: #fff;
+  }
+  .seg button { border: none; border-radius: 0; padding: 8px 16px; }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  /* Everything accent-tinted flips color with the catalog, so the owner can
+     always tell at a glance which catalog they are editing. */
+  body[data-catalog="general"] { --accent: #7a1f2b; }
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 10px;
     padding: 20px; margin-bottom: 18px;
@@ -190,15 +199,20 @@
 <div id="app-view" class="wrap hidden">
   <header class="top">
     <h1>Catalog Admin</h1>
+    <div class="seg" id="cat-seg">
+      <button data-cat="chemical">Chemical</button>
+      <button data-cat="general">General</button>
+    </div>
     <div class="actions">
-      <a class="btn" href="/api/csv">Download current CSV</a>
+      <a class="btn" id="csv-dl" href="/api/csv?catalog=chemical">Download current CSV</a>
       <button id="logout-btn">Log out</button>
     </div>
   </header>
 
   <section class="card">
     <h2>1 · Product data (CSV)</h2>
-    <p class="hint">Optional. Replaces the whole file — step&nbsp;4 lists every change first. Skip to publish photo changes only.</p>
+    <p class="hint">Optional. Replaces the whole <span id="csv-cat">Chemical</span> product list — step&nbsp;4 lists every change first. Skip to publish photo changes only.<br>
+    Columns: <code id="csv-cols"></code></p>
     <div class="drop" id="csv-drop">
       Drop the CSV here, or <strong>click to choose a file</strong>
       <input type="file" id="csv-input" accept=".csv,text/csv" class="hidden">
@@ -208,7 +222,7 @@
 
   <section class="card">
     <h2>2 · Product images</h2>
-    <p class="hint"><strong>Name each photo after its SKU</strong> — <code>CH110612.jpg</code> is the photo for <code>CH110612</code>. The same filename replaces the existing photo; a different extension leaves both, and only one wins. Accepts .jpg, .jpeg, .png, .webp.</p>
+    <p class="hint"><strong>Name each photo after its SKU</strong> — <code id="img-ex-file">CH110612.jpg</code> is the photo for <code id="img-ex-sku">CH110612</code>. The same filename replaces the existing photo; a different extension leaves both, and only one wins. Accepts .jpg, .jpeg, .png, .webp.</p>
     <div class="drop" id="img-drop">
       Drop photos or a folder here, or
       <strong><button class="link" id="pick-files">choose files</button></strong> /
@@ -298,29 +312,77 @@ function imageStem(filename) {
   const dot = base.lastIndexOf(".");
   return (dot > 0 ? base.slice(0, dot) : base).toLowerCase();
 }
-// Mirrors _slug() in build_catalog.py — names the public display copy.
+// Mirrors _slug() in both build scripts — names the public display copy.
 function slugify(text) {
   return String(text || "").trim().toLowerCase()
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "untitled";
 }
+
+/* ---------- catalogs ---------- */
+// Mirrors api/_lib/catalogs.js plus each build script's presentation contracts:
+// thumb() is how the build names display copies, imgPref its IMAGE_PREFERENCE,
+// diffFields the CSV columns whose values the shopper actually sees.
+const CATALOGS = {
+  chemical: {
+    label: "Chemical",
+    page: "/chemical.html",
+    thumb: name => `images/chemical/${slugify(imageStem(name))}.jpg`,
+    imgPref: ["jpg", "webp", "png", "jpeg"],
+    csvColumns: "sku, name, upc, item_order, brand, brand_abbrev, brand_order, unit_price, qty_display",
+    exampleSku: "CH110612",
+    exampleExt: ".jpg",
+    diffFields: [
+      ["name", "name"],
+      ["brand", "brand"],
+      ["brand_abbrev", "brand abbrev"],
+      ["brand_order", "brand order"],
+      ["item_order", "item order"],
+      ["unit_price", "price"],
+      ["qty_display", "size"],
+      ["upc", "UPC"],
+    ],
+  },
+  general: {
+    label: "General",
+    page: "/general.html",
+    thumb: name => `images/general/${slugify(imageStem(name))}.webp`,
+    imgPref: ["webp", "jpg", "png", "jpeg"],
+    csvColumns: "sku, name, unit_price, qty_display, bullets, upc, section, section_order, group_title, group_order, item_order",
+    exampleSku: "3ANN5909",
+    exampleExt: ".webp",
+    diffFields: [
+      ["name", "name"],
+      ["unit_price", "price"],
+      ["qty_display", "size"],
+      ["bullets", "bullets"],
+      ["upc", "UPC"],
+      ["section", "section"],
+      ["section_order", "section order"],
+      ["group_title", "group title"],
+      ["group_order", "group order"],
+      ["item_order", "item order"],
+    ],
+  },
+};
+function storedCatalog() {
+  try {
+    const v = localStorage.getItem("nufaCatalog");
+    if (CATALOGS[v]) return v;
+  } catch {}
+  return "chemical";
+}
+let catKey = storedCatalog();
+let CAT = CATALOGS[catKey];
+
 function thumbUrl(filename) {
-  return `images/chemical/${slugify(imageStem(filename))}.jpg`;
+  return CAT.thumb(filename);
 }
 
 /* ---------- CSV change preview ---------- */
-// Fields whose value the shopper actually sees. Compared as raw trimmed text,
-// with one exception (upc) noted below, so that an Excel round-trip which
-// rewrites a price as 3.4 instead of 3.40 shows up as the real change it is.
-const DIFF_FIELDS = [
-  ["name", "name"],
-  ["brand", "brand"],
-  ["brand_abbrev", "brand abbrev"],
-  ["brand_order", "brand order"],
-  ["item_order", "item order"],
-  ["unit_price", "price"],
-  ["qty_display", "size"],
-  ["upc", "UPC"],
-];
+// Per-catalog diffFields: the columns whose value the shopper actually sees.
+// Compared as raw trimmed text, with one exception (upc) noted below, so that
+// an Excel round-trip which rewrites a price as 3.4 instead of 3.40 shows up
+// as the real change it is.
 const MAX_DIFF_ROWS = 60;
 
 function csvRecords(text) {
@@ -342,7 +404,7 @@ function diffValue(key, raw) {
 }
 
 function rowSignature(row) {
-  return DIFF_FIELDS.map(([key]) => diffValue(key, row[key])).join("");
+  return CAT.diffFields.map(([key]) => diffValue(key, row[key])).join("");
 }
 
 // Keyed on SKU, not row position: the build sorts by brand_order/item_order, so
@@ -392,7 +454,7 @@ function computeCsvDiff(liveText, nextText) {
       if (!oldRow) { added.push({ sku, name: newRow.name || "" }); continue; }
       if (!newRow) { removed.push({ sku, name: oldRow.name || "" }); continue; }
       const fields = [];
-      for (const [key, label] of DIFF_FIELDS) {
+      for (const [key, label] of CAT.diffFields) {
         if (diffValue(key, oldRow[key]) !== diffValue(key, newRow[key])) {
           fields.push({ label, from: (oldRow[key] || "").trim(), to: (newRow[key] || "").trim() });
         }
@@ -552,14 +614,17 @@ async function doLogout() {
 
 /* ---------- init after login ---------- */
 async function init() {
+  const loadedFor = catKey; // a switch mid-flight must not fill the new catalog with old data
   const [imgs, csvRes] = await Promise.all([
-    api("/api/repo-images"),
-    fetch("/api/csv", { credentials: "same-origin" }),
+    api("/api/repo-images?catalog=" + catKey),
+    fetch("/api/csv?catalog=" + catKey, { credentials: "same-origin" }),
   ]);
+  const liveText = csvRes.ok ? await csvRes.text() : null;
+  if (loadedFor !== catKey) return;
   if (imgs.ok) state.repoImages = new Set(imgs.data.images);
-  if (csvRes.ok) {
-    state.liveCsv = await csvRes.text();
-    state.currentSkus = csvSkus(state.liveCsv);
+  if (liveText != null) {
+    state.liveCsv = liveText;
+    state.currentSkus = csvSkus(liveText);
   }
   renderGallery();
   updateUI();
@@ -585,12 +650,14 @@ async function setCsv(file) {
 }
 async function validateCsvNow() {
   if (!state.csv) return;
+  const current = state.csv;
   const batch = [...state.files.keys()];
   const { ok, data } = await api("/api/validate-csv", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ csv: state.csv.text, batchImages: batch }),
+    body: JSON.stringify({ csv: current.text, batchImages: batch, catalog: catKey }),
   });
+  if (state.csv !== current) return; // replaced or cleared (e.g. catalog switch) mid-flight
   state.csv.report = ok ? data : { ok: false, errors: [(data && data.error) || "Validation request failed."], warnings: [], stats: {} };
   renderCsvReport(state.csv.report, state.csv.name);
   updateUI();
@@ -605,7 +672,7 @@ function renderCsvReport(report, name) {
   const bits = [];
   if (report.stats && report.stats.inScopeRows != null) {
     bits.push(`<div class="stats"><strong>${esc(name)}</strong> — ${report.stats.inScopeRows} products across ` +
-      `${report.stats.totalRows} rows${report.stats.skippedMissingBrand ? `, ${report.stats.skippedMissingBrand} skipped (missing brand info)` : ""}.</div>`);
+      `${report.stats.totalRows} rows${report.stats.skipped ? `, ${report.stats.skipped} skipped (${esc(report.stats.skippedNote || "not publishable")})` : ""}.</div>`);
   } else {
     bits.push(`<div class="stats"><strong>${esc(name)}</strong></div>`);
   }
@@ -775,7 +842,7 @@ async function uploadOne(item) {
       item.status = "uploading"; renderRow(item);
       let res;
       try {
-        res = await fetch("/api/upload-image?filename=" + encodeURIComponent(item.name), {
+        res = await fetch("/api/upload-image?catalog=" + catKey + "&filename=" + encodeURIComponent(item.name), {
           method: "POST",
           credentials: "same-origin",
           headers: { "Content-Type": "application/octet-stream" },
@@ -871,12 +938,11 @@ function renderRow(item) {
   item.row.querySelector(".rm").disabled = item.status === "uploading" || item.status === "hashing";
 }
 /* ---------- photo gallery / delete ---------- */
-// Mirrors IMAGE_PREFERENCE in build_catalog.py: when one SKU has several
+// Mirrors the active catalog's IMAGE_PREFERENCE: when one SKU has several
 // photos, this decides which the catalog actually shows.
-const IMG_PREF = ["jpg", "webp", "png", "jpeg"];
 function prefRank(name) {
-  const i = IMG_PREF.indexOf(String(name).split(".").pop().toLowerCase());
-  return i < 0 ? IMG_PREF.length : i;
+  const i = CAT.imgPref.indexOf(String(name).split(".").pop().toLowerCase());
+  return i < 0 ? CAT.imgPref.length : i;
 }
 // stem -> the photo the build would actually show, ignoring ones staged for
 // deletion. Built in one pass: per-tile scanning would be O(n^2) over ~1400
@@ -1060,6 +1126,9 @@ function updateUI() {
   if (!state.csv && !c.done && !state.deleteSel.size) reasons.push("nothing to publish yet");
   $("publish-btn").disabled = reasons.length > 0;
   $("publish-reasons").textContent = reasons.join(" · ");
+
+  // No catalog hopping mid-publish: the commit under way belongs to this one.
+  for (const btn of document.querySelectorAll("#cat-seg button")) btn.disabled = state.publishing;
 }
 
 /* ---------- publish + status ---------- */
@@ -1072,7 +1141,7 @@ async function doPublish() {
   const { ok, status, data } = await api("/api/publish", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ csv: state.csv ? state.csv.text : null, images, deleteImages }),
+    body: JSON.stringify({ csv: state.csv ? state.csv.text : null, images, deleteImages, catalog: catKey }),
   });
   state.publishing = false;
   if (!ok) {
@@ -1098,7 +1167,7 @@ async function doPublish() {
   for (const item of [...state.files.values()]) removeItem(item);
   renderGallery();
   updateUI();
-  pollBuild(data.commit);
+  pollBuild(data.commit, catKey);
 }
 
 function showStatus(line, detail, url) {
@@ -1109,13 +1178,16 @@ function showStatus(line, detail, url) {
   $("status-card").scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-async function pollBuild(sha) {
+// forCat is pinned at publish time: switching catalogs while a build is
+// polled must not repoint the poll at the other catalog's workflow.
+async function pollBuild(sha, forCat) {
+  const cat = CATALOGS[forCat] || CAT;
   showStatus('<span class="spinner"></span>Published — waiting for the site build…',
     `Commit ${sha.slice(0, 7)}. This usually takes a few minutes.`);
   const deadline = Date.now() + 15 * 60 * 1000;
   while (Date.now() < deadline) {
     await sleep(6000);
-    const { ok, data } = await api("/api/build-status?sha=" + sha);
+    const { ok, data } = await api("/api/build-status?catalog=" + forCat + "&sha=" + sha);
     if (!ok || !data) continue;
     if (data.status === "unknown") {
       showStatus("Published ✓", "Could not read the build status. Check the site in a few minutes.");
@@ -1123,7 +1195,7 @@ async function pollBuild(sha) {
     }
     if (data.status === "completed") {
       if (data.conclusion === "success") {
-        showStatus("Published ✓", 'The live catalog is updated. <a href="/chemical.html" target="_blank" rel="noopener">Open the catalog</a>.');
+        showStatus("Published ✓", `The live catalog is updated. <a href="${esc(cat.page)}" target="_blank" rel="noopener">Open the catalog</a>.`);
       } else {
         showStatus("Build failed ✗",
           "The live site is untouched and still shows the last working version. Fix the problem and publish again.",
@@ -1134,6 +1206,62 @@ async function pollBuild(sha) {
     showStatus('<span class="spinner"></span>Building the catalog…', `Commit ${sha.slice(0, 7)}.`, data.url);
   }
   showStatus("Still building…", "Taking longer than expected — check back in a few minutes.");
+}
+
+/* ---------- catalog switching ---------- */
+function applyCatalogChrome() {
+  document.body.dataset.catalog = catKey;
+  document.title = `Catalog Admin (${CAT.label}) · Nu Fashion Beauty Supply`;
+  for (const btn of document.querySelectorAll("#cat-seg button")) {
+    btn.classList.toggle("on", btn.dataset.cat === catKey);
+  }
+  $("csv-dl").href = "/api/csv?catalog=" + catKey;
+  $("csv-cat").textContent = CAT.label;
+  $("csv-cols").textContent = CAT.csvColumns;
+  $("img-ex-file").textContent = CAT.exampleSku + CAT.exampleExt;
+  $("img-ex-sku").textContent = CAT.exampleSku;
+}
+
+function hasStagedWork() {
+  return state.files.size > 0 || state.deleteSel.size > 0 || !!state.csv;
+}
+
+// Staged-but-unpublished work is per catalog, so switching clears it. Finished
+// uploads survive as content-hash cache entries: re-adding the same files after
+// switching back is instant, no re-upload.
+async function switchCatalog(key) {
+  if (!CATALOGS[key] || key === catKey || state.publishing) return;
+  if (hasStagedWork() && !confirm(
+    `Switch to the ${CATALOGS[key].label} catalog? The CSV, uploads, and deletions staged here are cleared — nothing already published is affected.`
+  )) return;
+  catKey = key;
+  CAT = CATALOGS[key];
+  try { localStorage.setItem("nufaCatalog", key); } catch {}
+  resetWorkState();
+  applyCatalogChrome();
+  renderGallery();
+  updateUI();
+  if (state.loggedIn) await init();
+}
+
+function resetWorkState() {
+  clearTimeout(state.validateTimer);
+  state.queue.length = 0;
+  // In-flight workers notice their item left state.files and bail on their own.
+  for (const item of state.files.values()) if (item.row) item.row.remove();
+  state.files.clear();
+  state.deleteSel.clear();
+  state.csv = null;
+  state.liveCsv = null;
+  state.currentSkus = new Set();
+  state.repoImages = new Set();
+  state.galFilter = "";
+  state.galBadOnly = false;
+  $("gal-search").value = "";
+  $("gal-bad").checked = false;
+  $("csv-report").innerHTML = "";
+  $("filelist").innerHTML = "";
+  $("status-card").classList.add("hidden");
 }
 
 /* ---------- wiring ---------- */
@@ -1148,6 +1276,10 @@ function wireDrop(el, onFiles) {
 $("login-btn").onclick = doLogin;
 $("password").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
 $("logout-btn").onclick = doLogout;
+$("cat-seg").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-cat]");
+  if (btn) switchCatalog(btn.dataset.cat);
+});
 
 $("csv-drop").onclick = () => $("csv-input").click();
 $("csv-input").onchange = e => { setCsv(e.target.files[0]); e.target.value = ""; };
@@ -1196,6 +1328,7 @@ window.addEventListener("beforeunload", e => {
 
 /* ---------- boot ---------- */
 (async () => {
+  applyCatalogChrome();
   const { ok } = await api("/api/session");
   if (ok) { state.loggedIn = true; $("app-view").classList.remove("hidden"); init(); }
   else showLogin(false);

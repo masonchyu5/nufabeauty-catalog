@@ -1,12 +1,11 @@
 import { requireSession } from "./_lib/auth.js";
 import { readJsonBody } from "./_lib/body.js";
+import { resolveCatalog } from "./_lib/catalogs.js";
 import { validateCsv, normalizedNameFor } from "./_lib/csv.js";
 import {
   commitToMain,
   listRepoImageNames,
   listNormalizedNames,
-  IMAGES_DIR,
-  NORMALIZED_DIR,
 } from "./_lib/github.js";
 import { sanitizeImageFilename } from "./_lib/images.js";
 
@@ -25,6 +24,9 @@ export default async function handler(req, res) {
   } catch {
     return res.status(400).json({ error: "Invalid request body" });
   }
+
+  const catalog = resolveCatalog(body?.catalog);
+  if (!catalog) return res.status(400).json({ error: "Unknown catalog" });
 
   const csv = typeof body?.csv === "string" && body.csv.length ? body.csv : null;
   const rawImages = Array.isArray(body?.images) ? body.images : [];
@@ -55,13 +57,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: `Duplicate image filename: ${clean.base}` });
     }
     seen.add(clean.base);
-    images.push({ path: `${IMAGES_DIR}/${clean.base}`, sha });
+    images.push({ path: `${catalog.imagesDir}/${clean.base}`, sha });
   }
 
   let repoImages = null;
   if (rawDeletes.length || csv) {
     try {
-      repoImages = new Set(await listRepoImageNames());
+      repoImages = new Set(await listRepoImageNames(catalog));
     } catch (err) {
       return res.status(502).json({ error: `Could not list the catalog's photos: ${err.message}` });
     }
@@ -94,7 +96,7 @@ export default async function handler(req, res) {
       });
     }
     for (const name of wanted) {
-      deletions.push(`${IMAGES_DIR}/${name}`);
+      deletions.push(`${catalog.imagesDir}/${name}`);
       deletedNames.add(name);
     }
 
@@ -102,22 +104,22 @@ export default async function handler(req, res) {
     // derive ch1.jpg), so only remove it once nothing left still maps to it.
     const stillUsed = new Set();
     for (const name of repoImages) {
-      if (!wanted.has(name)) stillUsed.add(normalizedNameFor(name));
+      if (!wanted.has(name)) stillUsed.add(normalizedNameFor(name, catalog));
     }
-    for (const name of seen) stillUsed.add(normalizedNameFor(name));
+    for (const name of seen) stillUsed.add(normalizedNameFor(name, catalog));
 
     let normalized;
     try {
-      normalized = new Set(await listNormalizedNames());
+      normalized = new Set(await listNormalizedNames(catalog));
     } catch {
       normalized = new Set(); // no derivative listing: skip the cleanup, never fail the publish
     }
     const derived = new Set();
     for (const name of wanted) {
-      const norm = normalizedNameFor(name);
+      const norm = normalizedNameFor(name, catalog);
       if (!stillUsed.has(norm) && normalized.has(norm)) derived.add(norm);
     }
-    for (const norm of derived) deletions.push(`${NORMALIZED_DIR}/${norm}`);
+    for (const norm of derived) deletions.push(`${catalog.normalizedDir}/${norm}`);
   }
 
   let report = null;
@@ -125,7 +127,7 @@ export default async function handler(req, res) {
     // A photo deleted in this same publish must not count as available.
     const afterDelete = new Set([...repoImages].filter((name) => !deletedNames.has(name)));
     try {
-      report = validateCsv(csv, { repoImages: afterDelete, batchImages: seen });
+      report = validateCsv(csv, { catalog, repoImages: afterDelete, batchImages: seen });
     } catch (err) {
       return res.status(500).json({ error: `Validation failed: ${err.message}` });
     }
@@ -138,10 +140,10 @@ export default async function handler(req, res) {
   if (csv) parts.push("CSV");
   if (images.length) parts.push(`${images.length} image(s)`);
   if (deletedNames.size) parts.push(`deleted ${deletedNames.size} image(s)`);
-  const message = `Admin publish: ${parts.join(" + ")}`;
+  const message = `Admin publish (${catalog.key}): ${parts.join(" + ")}`;
 
   try {
-    const commit = await commitToMain({ csv, images, deletions, message });
+    const commit = await commitToMain({ catalog, csv, images, deletions, message });
     res.status(200).json({ commit, report, deleted: deletedNames.size });
   } catch (err) {
     res.status(err.status === 409 ? 409 : 502).json({ error: err.message });

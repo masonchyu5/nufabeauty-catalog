@@ -1,6 +1,6 @@
 // Column set build_catalog.py reads. "Required" means the build breaks or
 // silently drops data without it.
-const REQUIRED_HEADERS = [
+const CHEMICAL_REQUIRED_HEADERS = [
   "sku",
   "name",
   "upc",
@@ -17,7 +17,7 @@ const REQUIRED_HEADERS = [
 // by filename. A CSV exported before those cleanups still publishes correctly --
 // these are ignored, with a note so the admin knows the file is stale. Anything
 // else unrecognized gets the generic warning.
-const RETIRED_HEADERS = new Set([
+const CHEMICAL_RETIRED_HEADERS = new Set([
   "section",
   "section_order",
   "group_title",
@@ -26,11 +26,32 @@ const RETIRED_HEADERS = new Set([
   "category",
   "image_path",
 ]);
-const KNOWN_HEADERS = new Set([...REQUIRED_HEADERS, ...RETIRED_HEADERS]);
+const CHEMICAL_KNOWN_HEADERS = new Set([
+  ...CHEMICAL_REQUIRED_HEADERS,
+  ...CHEMICAL_RETIRED_HEADERS,
+]);
+
+// EXPECTED_HEADER in build_general.py: the build compares the raw header row
+// for exact equality (names, order, nothing extra) and refuses the whole file
+// on any drift, so validation must be exactly as strict or a publish would
+// sail through here and then fail in CI.
+const GENERAL_HEADER = [
+  "sku",
+  "name",
+  "unit_price",
+  "qty_display",
+  "bullets",
+  "upc",
+  "section",
+  "section_order",
+  "group_title",
+  "group_order",
+  "item_order",
+];
 
 const MAX_LISTED_ROWS = 15;
 
-// Mirrors _slug() in build_catalog.py, which names every display copy.
+// Mirrors _slug() in both build scripts, which names every display copy.
 export function slugify(text) {
   const out = String(text || "")
     .trim()
@@ -49,9 +70,9 @@ export function imageStem(filename) {
   return (dot > 0 ? base.slice(0, dot) : base).toLowerCase();
 }
 
-// The display copy build_catalog.py derives from a given master.
-export function normalizedNameFor(filename) {
-  return `${slugify(imageStem(filename))}.jpg`;
+// The display copy the catalog's build derives from a given master.
+export function normalizedNameFor(filename, catalog) {
+  return `${slugify(imageStem(filename))}${catalog.normalizedExt}`;
 }
 
 export function parseCsv(text) {
@@ -111,8 +132,9 @@ export function availablePhotoStems(repoImages, batchImages) {
 }
 
 export function csvRecords(text) {
-  const rows = parseCsv(text).filter((r) => r.some((cell) => cell.trim() !== ""));
-  if (!rows.length) return { headers: [], records: [] };
+  const allRows = parseCsv(text);
+  const rows = allRows.filter((r) => r.some((cell) => cell.trim() !== ""));
+  if (!rows.length) return { headers: [], rawHeaders: [], records: [] };
   const headers = rows[0].map((h) => h.trim());
   const records = rows.slice(1).map((cells, idx) => {
     const rec = { __row: idx + 2 };
@@ -121,10 +143,18 @@ export function csvRecords(text) {
     });
     return rec;
   });
-  return { headers, records };
+  // rawHeaders is the first parsed row untrimmed and unfiltered — what
+  // csv.DictReader.fieldnames sees — for the General build's exact-match check.
+  return { headers, rawHeaders: allRows[0], records };
 }
 
-export function validateCsv(text, { repoImages = new Set(), batchImages = new Set() } = {}) {
+export function validateCsv(text, { catalog, repoImages = new Set(), batchImages = new Set() } = {}) {
+  return catalog && catalog.key === "general"
+    ? validateGeneralCsv(text, repoImages, batchImages)
+    : validateChemicalCsv(text, repoImages, batchImages);
+}
+
+function validateChemicalCsv(text, repoImages, batchImages) {
   const errors = [];
   const warnings = [];
   const stats = {};
@@ -134,19 +164,19 @@ export function validateCsv(text, { repoImages = new Set(), batchImages = new Se
     return { ok: false, errors: ["The CSV file is empty."], warnings, stats };
   }
 
-  const missing = REQUIRED_HEADERS.filter((h) => !headers.includes(h));
+  const missing = CHEMICAL_REQUIRED_HEADERS.filter((h) => !headers.includes(h));
   if (missing.length) {
     errors.push(`Missing or renamed column(s): ${missing.join(", ")}`);
     return { ok: false, errors, warnings, stats };
   }
-  const retired = headers.filter((h) => h && RETIRED_HEADERS.has(h));
+  const retired = headers.filter((h) => h && CHEMICAL_RETIRED_HEADERS.has(h));
   if (retired.length) {
     warnings.push(
       `Column(s) no longer part of the chemical catalog, ignored: ${retired.join(", ")}. ` +
         "Download the current CSV to get the up-to-date columns."
     );
   }
-  const unknown = headers.filter((h) => h && !KNOWN_HEADERS.has(h));
+  const unknown = headers.filter((h) => h && !CHEMICAL_KNOWN_HEADERS.has(h));
   if (unknown.length) {
     warnings.push(`Unrecognized column(s), ignored by the build: ${unknown.join(", ")}`);
   }
@@ -156,9 +186,9 @@ export function validateCsv(text, { repoImages = new Set(), batchImages = new Se
   const inScope = records.filter((r) => r.brand && r.brand_abbrev && r.brand_order);
 
   stats.totalRows = records.length;
-  stats.chemicalRows = records.length;
   stats.inScopeRows = inScope.length;
-  stats.skippedMissingBrand = records.length - inScope.length;
+  stats.skipped = records.length - inScope.length;
+  stats.skippedNote = "missing brand info";
 
   if (!inScope.length) {
     errors.push(
@@ -223,6 +253,141 @@ export function validateCsv(text, { repoImages = new Set(), batchImages = new Se
     warnings.push(
       `${noPhoto.length} product(s) have no uploaded photo and will show a placeholder. ` +
         "Upload a photo named after the SKU to fix that."
+    );
+  }
+  stats.withPhoto = inScope.length - noPhoto.length;
+
+  return { ok: errors.length === 0, errors, warnings, stats };
+}
+
+function validateGeneralCsv(text, repoImages, batchImages) {
+  const errors = [];
+  const warnings = [];
+  const stats = {};
+
+  const { headers, rawHeaders, records } = csvRecords(text);
+  if (!headers.length) {
+    return { ok: false, errors: ["The CSV file is empty."], warnings, stats };
+  }
+
+  // build_general.py: `reader.fieldnames != EXPECTED_HEADER` — raw, ordered,
+  // nothing extra (even a stray space in a column name fails the build).
+  if ((rawHeaders || []).join(",") !== GENERAL_HEADER.join(",")) {
+    errors.push(
+      "The column header row must match the General catalog exactly (same names, same order, nothing extra). " +
+        `Expected: ${GENERAL_HEADER.join(",")} — found: ${(rawHeaders || []).join(",")}. ` +
+        "Download the current CSV and redo the edits in that file."
+    );
+    return { ok: false, errors, warnings, stats };
+  }
+
+  // Mirrors load_sections(): rows with a blank sku or section never render.
+  const inScope = records.filter((r) => r.sku && r.section);
+  const skippedRows = records.filter((r) => !(r.sku && r.section)).map((r) => r.__row);
+
+  stats.totalRows = records.length;
+  stats.inScopeRows = inScope.length;
+  stats.skipped = skippedRows.length;
+  stats.skippedNote = "blank sku or section";
+
+  if (skippedRows.length) {
+    warnings.push(
+      `Row(s) with a blank sku or section are left out of the catalog: rows ${listRows(skippedRows)}`
+    );
+  }
+  if (!inScope.length) {
+    errors.push("No publishable rows: every row is missing its sku or its section.");
+    return { ok: false, errors, warnings, stats };
+  }
+
+  // build_general.py refuses the whole file when two rows' SKUs share a display
+  // slug — which includes plain duplicate SKUs. Errors, not warnings: a publish
+  // would land, then the CI build would fail and the site would keep the old data.
+  const bySlug = new Map();
+  const collisions = [];
+  for (const r of inScope) {
+    const slug = slugify(r.sku);
+    const prev = bySlug.get(slug);
+    if (prev) collisions.push({ prev, row: r });
+    else bySlug.set(slug, r);
+  }
+  if (collisions.length) {
+    const examples = collisions.slice(0, 5).map(({ prev, row }) =>
+      prev.sku === row.sku
+        ? `${row.sku} appears twice (rows ${prev.__row} and ${row.__row})`
+        : `${prev.sku} and ${row.sku} differ only in case/punctuation (rows ${prev.__row} and ${row.__row})`
+    );
+    errors.push(
+      "Every General row needs a unique SKU (and no two SKUs may differ only in case or punctuation) — " +
+        `the build refuses the whole file otherwise: ${examples.join("; ")}` +
+        (collisions.length > 5 ? ` (+${collisions.length - 5} more)` : "")
+    );
+  }
+
+  // The build silently blanks a malformed price (the card shows no price at
+  // all), so catch it here — a blank price is a feature, a typo is not.
+  const badPrice = inScope
+    .filter((r) => r.unit_price && !/^\d+(\.\d+)?$/.test(r.unit_price))
+    .map((r) => r.__row);
+  if (badPrice.length) {
+    errors.push(
+      `Malformed unit_price (must be a plain number like 17.25, or empty for no price): rows ${listRows(badPrice)}`
+    );
+  }
+  const emptyPrice = inScope.filter((r) => !r.unit_price).length;
+  if (emptyPrice) {
+    warnings.push(
+      `${emptyPrice} row(s) have no unit_price and will show quantity only (normal for JOY PRODUCTS).`
+    );
+  }
+
+  const badOrder = inScope
+    .filter((r) =>
+      ["section_order", "group_order", "item_order"].some(
+        (k) => r[k] && !/^\d+$/.test(r[k])
+      )
+    )
+    .map((r) => r.__row);
+  if (badOrder.length) {
+    warnings.push(
+      `Non-numeric section_order/group_order/item_order (these sort last): rows ${listRows(badOrder)}`
+    );
+  }
+
+  // The build takes a section's order from its first row; a section whose rows
+  // disagree is a hand-editing slip that would silently reorder pages.
+  const sectionOrder = new Map();
+  const conflicted = new Set();
+  for (const r of inScope) {
+    if (!/^\d+$/.test(r.section_order || "")) continue;
+    const prev = sectionOrder.get(r.section);
+    if (prev === undefined) sectionOrder.set(r.section, r.section_order);
+    else if (prev !== r.section_order) conflicted.add(r.section);
+  }
+  if (conflicted.size) {
+    warnings.push(
+      `Section(s) with more than one section_order (the first row's value wins): ${[...conflicted].join(", ")}`
+    );
+  }
+
+  // A blank UPC renders no barcode by design; only a non-blank wrong-length
+  // one is worth flagging.
+  const badUpc = inScope.filter((r) => {
+    const digits = (r.upc || "").replace(/\D+/g, "");
+    return digits.length > 0 && digits.length !== 12 && digits.length !== 13;
+  }).length;
+  if (badUpc) {
+    warnings.push(
+      `${badUpc} row(s) have a UPC that is not 12 or 13 digits; no barcode will render for them.`
+    );
+  }
+
+  const available = availablePhotoStems(repoImages, batchImages);
+  const noPhoto = inScope.filter((r) => !available.has(r.sku.toLowerCase()));
+  if (noPhoto.length) {
+    warnings.push(
+      `${noPhoto.length} product(s) have no photo yet and will show the placeholder. ` +
+        "Upload a photo named after the SKU to fill one in."
     );
   }
   stats.withPhoto = inScope.length - noPhoto.length;

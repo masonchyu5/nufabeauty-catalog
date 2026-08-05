@@ -1,5 +1,6 @@
 import { requireSession } from "./_lib/auth.js";
 import { readJsonBody } from "./_lib/body.js";
+import { resolveCatalog } from "./_lib/catalogs.js";
 import { validateCsv } from "./_lib/csv.js";
 import { listRepoImageNames } from "./_lib/github.js";
 
@@ -15,6 +16,8 @@ export default async function handler(req, res) {
   } catch {
     return res.status(400).json({ error: "Invalid request body" });
   }
+  const catalog = resolveCatalog(body?.catalog);
+  if (!catalog) return res.status(400).json({ error: "Unknown catalog" });
   if (typeof body?.csv !== "string" || !body.csv.length) {
     return res.status(400).json({ error: "Missing csv text" });
   }
@@ -23,8 +26,8 @@ export default async function handler(req, res) {
   );
 
   try {
-    const repoImages = new Set(await listRepoImageNames());
-    const report = validateCsv(body.csv, { repoImages, batchImages });
+    const repoImages = new Set(await listRepoImageNames(catalog));
+    const report = validateCsv(body.csv, { catalog, repoImages, batchImages });
     res.status(200).json(report);
   } catch (err) {
     res.status(500).json({ error: `Validation failed: ${err.message}` });

@@ -6,10 +6,13 @@ Vercel at `nufabeauty-catalog.vercel.app`.
 Two catalogs live here. **Both are live: Chemical at `/chemical.html`, General
 at `/general.html`**, linked from the shared topbar and the landing page.
 
-Binding constraints for any catalog work — product data only from the CSVs,
-master images never deleted, consistent fonts across both catalogs, and more —
-live in `CLAUDE.md` under **"Catalog generation — HARD RULES"**. Read them
-before changing anything.
+Ground rules for any catalog work: product data comes **only** from the CSVs
+(never hardcoded in templates or scripts); masters in `source/*/master-images/`
+are originals — never deleted, edited, or written by build code; generated
+files (`index.html`, `chemical.html`, `general.html`, `images/**`, manifests)
+are never hand-edited; build through `.venv/bin/python`, never bare `python3`;
+and the two catalogs stay decoupled — work on one must not change the other's
+files or output.
 
 ---
 
@@ -84,7 +87,7 @@ admin.html                     admin UI
 | **Nav link** | yes | yes |
 | **Builder** | `scripts/build_catalog.py` | `scripts/build_general.py` |
 | **CI workflow** | `build.yml` | `build-general.yml` |
-| **Admin support** | full | none |
+| **Admin support** | full | full |
 | **Image fetcher** | archived (obsolete) | `scripts/fetch_general_images.py` |
 
 ### Why there are two build scripts (by design)
@@ -194,42 +197,58 @@ regenerates everything.
 
 ## Admin app
 
-Lets a non-developer update the Chemical catalog from a browser — **no local
-setup, no git**.
+Lets a non-developer update **either catalog** from a browser — **no local
+setup, no git**. A Chemical/General switch in the header picks the catalog;
+the page accent follows it (green = Chemical, maroon = General) so it is
+always obvious where an edit will land, and staged-but-unpublished work is
+cleared (with a confirmation) when switching.
 
 ```
-admin.html  ─►  api/*.js  ─►  GitHub API  ─►  commit to main
-                                              └─►  Action rebuilds
-                                                   └─►  Vercel deploys
+admin.html  ─►  api/*.js?catalog=…  ─►  GitHub API  ─►  commit to main
+                                                        └─►  Action rebuilds
+                                                             └─►  Vercel deploys
 ```
 
 | Route | Purpose |
 |---|---|
-| `login` / `logout` / `session` / `ping` | password auth via signed cookie |
-| `csv` | download the current `items.csv` |
+| `login` / `logout` / `session` / `ping` | password auth via signed cookie (catalog-independent) |
+| `csv` | download the catalog's current `items.csv` |
 | `validate-csv` | check an uploaded CSV before publishing |
 | `upload-image` | stage one photo as a git blob |
-| `repo-images` | list existing masters |
+| `repo-images` | list the catalog's existing masters |
 | `publish` | commit CSV + images + deletions in **one** commit |
-| `build-status` | poll the resulting Action run |
+| `build-status` | poll the catalog's Action run for a commit |
 
-`api/_lib/github.js` holds the only path constants:
+Every data route takes a `catalog` parameter (`chemical` \| `general`).
+Missing means `chemical`, so pre-switch bookmarks keep working; anything else
+is a 400 — a path is never derived from user input. `api/_lib/catalogs.js`
+holds the only path constants:
 
 ```js
-IMAGES_DIR     = "source/chemical/master-images"
-NORMALIZED_DIR = "images/chemical"
-CSV_PATH       = "source/chemical/items.csv"
+chemical: csvPath "source/chemical/items.csv"
+          imagesDir "source/chemical/master-images"
+          normalizedDir "images/chemical"    normalizedExt ".jpg"
+general:  csvPath "source/general/items.csv"
+          imagesDir "source/general/master-images"
+          normalizedDir "images/general"     normalizedExt ".webp"
 ```
+
+Validation is per catalog and mirrors each build's contract. Chemical checks
+required columns and brand fields, tolerating retired/unknown columns with
+warnings. General enforces the exact 11-column header (order-sensitive and
+untrimmed — precisely what `build_general.py` hard-fails on) and treats
+duplicate or slug-colliding SKUs and malformed prices as errors, because the
+build would refuse the whole file after the publish landed. Blank prices,
+bullets, and UPCs pass silently — blank fields are features of the data.
 
 Publishing writes a single commit via the git tree API, so a partial failure
 can't leave the repo half-updated. Deleting a master also deletes its derived
 display copy — otherwise the repo would keep the bytes of every photo ever
-removed. A concurrent publish gets a 409 rather than clobbering.
+removed. A concurrent publish gets a 409 rather than clobbering. Commit
+messages name the catalog: `Admin publish (general): CSV + 2 image(s)`.
 
-**The admin is Chemical-only.** Supporting General means parameterizing those
-three constants.
-
-Configuration lives in `ADMIN_SETUP.md` (four Vercel environment variables).
+Configuration lives in `ADMIN_SETUP.md` (four Vercel environment variables —
+shared by both catalogs, nothing extra to configure for General).
 
 ---
 
@@ -299,10 +318,6 @@ refuses to run instead.
   likely genuine gaps in go-upc's database rather than fetch failures; not
   fully diagnosed. Masters are also expected to be swapped over time — the
   build re-derives changed images by content hash automatically.
-- **The admin app is Chemical-only.** General CSV/image updates go through
-  git. Supporting General means parameterizing the three constants in
-  `api/_lib/github.js` (and note `api/_lib/csv.js` currently treats General's
-  layout columns as retired headers).
 - **Dead code is left in place on purpose**: `build_general_pages()` /
   `build_sku_location_index()` in `build_catalog.py` and the unused
   `.page-banner*` / `.banner-abbrev` / `.bc-placeholder` rules in
@@ -315,5 +330,5 @@ refuses to run instead.
   variants would cut typical page weight several-fold.
 - **`assets/barcode-placeholder.svg` is orphaned** — barcodes are generated
   inline; nothing references it.
-- **`ADMIN_UPLOAD_PLAN.md` and `ADMIN_SETUP.md` document pre-reorganization
-  paths** and are out of date.
+- **`ADMIN_UPLOAD_PLAN.md` documents the pre-reorganization design** and is
+  kept as history only; `ADMIN_SETUP.md` is current.

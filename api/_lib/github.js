@@ -1,12 +1,5 @@
 const API = process.env.GH_API_URL || "https://api.github.com";
 
-export const IMAGES_DIR = "source/chemical/master-images";
-// Display copies build_catalog.py derives from the masters. Deleting a master
-// has to take its derivative too, or the repo keeps the bytes of every photo
-// ever removed -- nothing in the build ever unlinks from this directory.
-export const NORMALIZED_DIR = "images/chemical";
-export const CSV_PATH = "source/chemical/items.csv";
-
 const IMAGE_EXT = /\.(jpe?g|png|webp)$/i;
 
 function repoSlug() {
@@ -68,25 +61,25 @@ async function listDirBlobs(dir) {
   return (tree.tree || []).filter((e) => e.type === "blob").map((e) => e.path);
 }
 
-// Only actual photos. Defensive: the masters directory should contain nothing
-// else now that the old fetch script lives in scripts/archive/.
-export async function listRepoImageNames() {
-  return (await listDirBlobs(IMAGES_DIR)).filter((name) => IMAGE_EXT.test(name));
+// Only actual photos. Defensive: the masters directories should contain
+// nothing else.
+export async function listRepoImageNames(catalog) {
+  return (await listDirBlobs(catalog.imagesDir)).filter((name) => IMAGE_EXT.test(name));
 }
 
-export async function listNormalizedNames() {
-  return listDirBlobs(NORMALIZED_DIR);
+export async function listNormalizedNames(catalog) {
+  return listDirBlobs(catalog.normalizedDir);
 }
 
-export async function getCsvContent() {
+export async function getCsvContent(catalog) {
   // Encode per segment: the Contents API needs real "/" separators, so
   // encodeURIComponent on the whole path would turn them into %2F and 404.
-  const encodedPath = CSV_PATH.split("/").map(encodeURIComponent).join("/");
+  const encodedPath = catalog.csvPath.split("/").map(encodeURIComponent).join("/");
   const body = await gh(`/contents/${encodedPath}?ref=main`);
   return Buffer.from(body.content, "base64").toString("utf8");
 }
 
-export async function commitToMain({ csv, images, deletions = [], message }) {
+export async function commitToMain({ catalog, csv, images, deletions = [], message }) {
   const parent = await getMainHead();
   const baseTree = await getCommitTreeSha(parent);
 
@@ -103,7 +96,7 @@ export async function commitToMain({ csv, images, deletions = [], message }) {
     entries.push({ path, mode: "100644", type: "blob", sha: null });
   }
   if (csv != null) {
-    entries.push({ path: CSV_PATH, mode: "100644", type: "blob", content: csv });
+    entries.push({ path: catalog.csvPath, mode: "100644", type: "blob", content: csv });
   }
 
   const tree = await gh("/git/trees", {
@@ -134,10 +127,17 @@ export async function commitToMain({ csv, images, deletions = [], message }) {
   return commit.sha;
 }
 
-export async function workflowRunForCommit(headSha) {
+export async function workflowRunForCommit(headSha, workflowName) {
   const body = await gh(
     `/actions/runs?head_sha=${encodeURIComponent(headSha)}&per_page=5`
   );
   const runs = body.workflow_runs || [];
-  return runs.length ? runs[0] : null;
+  if (!runs.length) return null;
+  // An admin commit only touches one catalog's inputs, so normally exactly one
+  // workflow fires — but if several runs share the sha, report the right one.
+  if (workflowName) {
+    const match = runs.find((run) => run.name === workflowName);
+    if (match) return match;
+  }
+  return runs[0];
 }

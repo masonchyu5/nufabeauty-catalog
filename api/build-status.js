@@ -1,8 +1,12 @@
 import { requireSession } from "./_lib/auth.js";
+import { resolveCatalog } from "./_lib/catalogs.js";
 import { workflowRunForCommit } from "./_lib/github.js";
 
 export default async function handler(req, res) {
   if (!requireSession(req, res)) return;
+
+  const catalog = resolveCatalog(req.query?.catalog);
+  if (!catalog) return res.status(400).json({ error: "Unknown catalog" });
 
   const sha = String(req.query?.sha || "");
   if (!/^[0-9a-f]{40}$/.test(sha)) {
@@ -10,7 +14,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const run = await workflowRunForCommit(sha);
+    const run = await workflowRunForCommit(sha, catalog.workflowName);
     if (!run) {
       return res.status(200).json({ status: "pending" });
     }
