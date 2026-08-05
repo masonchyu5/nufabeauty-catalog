@@ -4,8 +4,7 @@ Static product catalogs generated from CSV data and product photos, deployed to
 Vercel at `nufabeauty-catalog.vercel.app`.
 
 Two catalogs live here. **Both are live: Chemical at `/chemical.html`, General
-at `/general.html`.** General is reachable by direct URL only — it is not
-linked from the shared nav or landing page, by owner decision.
+at `/general.html`**, linked from the shared topbar and the landing page.
 
 Binding constraints for any catalog work — product data only from the CSVs,
 master images never deleted, consistent fonts across both catalogs, and more —
@@ -82,7 +81,7 @@ admin.html                     admin UI
 | **Masters** | 1,413 | 637 (87 products have none → placeholder) |
 | **Display images** | 1,410 JPEG 900×900 | 637 WebP ≤ 900px, aspect-preserved |
 | **Generated page** | `chemical.html` — 98 pages, fixed 4×5 grid | `general.html` — 144 pages, dynamic layout |
-| **Nav link** | yes | no (owner decision) |
+| **Nav link** | yes | yes |
 | **Builder** | `scripts/build_catalog.py` | `scripts/build_general.py` |
 | **CI workflow** | `build.yml` | `build-general.yml` |
 | **Admin support** | full | none |
@@ -300,10 +299,6 @@ refuses to run instead.
   likely genuine gaps in go-upc's database rather than fetch failures; not
   fully diagnosed. Masters are also expected to be swapped over time — the
   build re-derives changed images by content hash automatically.
-- **General is not linked from the shared nav or landing page** — owner
-  decision. Integrating it means editing `templates/base.html` /
-  `templates/index.html`, which regenerates the Chemical shell too; do not do
-  this without the owner asking.
 - **The admin app is Chemical-only.** General CSV/image updates go through
   git. Supporting General means parameterizing the three constants in
   `api/_lib/github.js` (and note `api/_lib/csv.js` currently treats General's

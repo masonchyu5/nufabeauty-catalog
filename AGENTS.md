@@ -156,9 +156,10 @@ them with decorative images, text-only UPCs, or shrink below scannable size.
 - The repo root is the Vercel site; `.vercelignore` keeps `source/`,
   `scripts/`, `templates/`, and docs out of the deploy. Masters must never
   become publicly reachable.
-- General is standalone at `/general.html` by owner decision. Do not add
-  General links to the shared nav (`templates/base.html`) or landing page
-  (`templates/index.html`) unless the owner asks.
+- General is linked from the shared topbar and landing page (owner-approved
+  2026-08-05). Edits to `templates/base.html` / `templates/index.html` are
+  shared: they regenerate the shells of BOTH catalogs, so rebuild both and
+  verify the diffs contain only what you intended.
 - The admin app (`admin.html` + `api/`) is Chemical-only and hardcoded to
   Chemical paths. General work must not touch it.
 
