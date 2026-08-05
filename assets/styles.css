@@ -294,7 +294,6 @@ img { display: block; max-width: 100%; height: auto; }
   gap: 18px;
 }
 
-.page-banner-general { background: var(--color-red); }
 .page-banner-chemical { background: var(--color-blue); }
 
 .page-banner .banner-abbrev {
@@ -344,121 +343,6 @@ img { display: block; max-width: 100%; height: auto; }
 .foot-num { font-variant-numeric: tabular-nums; color: var(--color-muted); }
 
 .bc-placeholder { display: block; }
-
-/* ======================================================================== */
-/*  General — 3-column grid, sectioned by group_title, bullets + UPC          */
-/* ======================================================================== */
-
-.page-group + .page-group { margin-top: 18px; }
-
-.group-title {
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 12pt;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  margin: 0 0 10px;
-  color: #4f4a44;
-}
-
-.item-grid-general {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px 22px;
-}
-
-.item-card-general {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-
-.item-card-general .item-media {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background: #fff;
-  border: 1px solid var(--color-line);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding: 4px;
-}
-
-.item-card-general .item-media img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.item-card-general .item-media img.placeholder { width: 100%; height: 100%; }
-
-.item-card-general .item-sku {
-  font-family: var(--font-sans);
-  font-weight: 700;
-  color: var(--color-burgundy);
-  font-size: 11pt;
-  letter-spacing: 0.02em;
-  margin: 6px 0 2px;
-}
-
-.item-card-general .item-name {
-  font-size: 9pt;
-  font-weight: 600;
-  line-height: 1.25;
-  margin: 0 0 2px;
-}
-
-.item-card-general .item-pricing {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  font-size: 9pt;
-  margin: 0 0 6px;
-}
-
-.item-card-general .item-pricing .qty {
-  font-weight: 600;
-  color: var(--color-ink);
-}
-
-.item-card-general .item-pricing .price {
-  font-weight: 700;
-  color: var(--color-burgundy);
-  font-size: 10pt;
-}
-
-.item-card-general .bullets {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: 8pt;
-  color: var(--color-ink);
-}
-
-.item-card-general .bullets li {
-  position: relative;
-  padding-left: 9px;
-  margin-bottom: 2px;
-  line-height: 1.3;
-}
-
-.item-card-general .bullets li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0.45em;
-  width: 3px;
-  height: 3px;
-  background: var(--color-burgundy);
-}
-
-.item-card-general .item-upc {
-  font-size: 7pt;
-  letter-spacing: 0.05em;
-  color: var(--color-muted);
-  margin: 6px 0 0;
-}
 
 /* ======================================================================== */
 /*  Chemical — 4-column grid, brand abbrev badge on every card                */

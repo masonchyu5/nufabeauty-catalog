@@ -1,32 +1,43 @@
-<article class="print-page general-page" data-source-page="{{ page.source_page_num }}">
+<article class="print-page general-page"{% if page.is_section_start %} id="sec-{{ page.section_slug }}"{% endif %} style="--accent: {{ page.accent }}; --accent-fade: {{ page.accent_fade }}">
   <div class="page-disclaimer">Not responsible for errors in pricing or copy. Prices are subject to change without notice.</div>
-  <header class="page-banner page-banner-general">{{ page.banner }}</header>
-  <div class="page-body">
-    {% for group in page.groups %}
-    <section class="page-group">
-      {% if group.name and group.name != "—" %}<h2 class="group-title">{{ group.name }}</h2>{% endif %}
-      <div class="item-grid item-grid-general" data-count="{{ group.products|length }}">
-        {% for item in group.products %}
-        <article class="item-card item-card-general">
-          <div class="item-media">
+  {% if page.is_section_start %}
+  <header class="g-banner">{{ page.section }}</header>
+  {% else %}
+  <div class="g-bandbar"><span class="g-bandbar-label">{{ page.section }}</span></div>
+  {% endif %}
+  <div class="g-body">
+    {% for block in page.blocks %}
+    <section class="g-block">
+      {% if block.show_heading %}
+      <h2 class="g-heading{% if block.long_heading %} g-heading--long{% endif %}">{{ block.title }}</h2>
+      {% endif %}
+      <div class="g-grid g-grid--{{ block.variant }}">
+        {% for item in block.products %}
+        <article class="g-card g-card--{{ block.variant }}">
+          <div class="g-media">
             {% if item.image_src %}
-              <img src="{{ item.image_src }}" alt="{{ item.name or item.sku }}" loading="lazy">
+            <img src="{{ item.image_src }}" alt="{{ item.name or item.sku }}" loading="lazy">
             {% else %}
-              <img src="assets/placeholder.svg" alt="No image available" class="placeholder">
+            <img src="{{ rel }}assets/placeholder.svg" alt="No image available" class="placeholder">
             {% endif %}
           </div>
-          <p class="item-sku">{{ item.sku }}</p>
-          {% if item.name %}<p class="item-name">{{ item.name }}</p>{% else %}<p class="item-name muted">Name not available</p>{% endif %}
-          <p class="item-pricing">
-            {% if item.qty_display %}<span class="qty">{{ item.qty_display }}</span>{% endif %}
-            <span class="price">{% if item.unit_price %}${{ item.unit_price }}{% else %}<span class="muted">—</span>{% endif %}</span>
-          </p>
-          {% if item.bullets %}
-          <ul class="bullets">
-            {% for b in item.bullets %}<li>{{ b }}</li>{% endfor %}
-          </ul>
-          {% endif %}
-          {% if item.upc %}<p class="item-upc">UPC {{ item.upc }}</p>{% endif %}
+          <div class="g-copy">
+            <p class="g-sku">{{ item.sku }}</p>
+            {% if item.name %}
+            <p class="g-name">{{ item.name }}</p>
+            {% endif %}
+            <p class="g-qtyprice"><span class="g-qty">{{ item.qty_upper }}</span>{% if item.unit_price %}<span class="g-price">${{ item.unit_price }}</span>{% endif %}</p>
+            {% if item.bullets %}
+            <ul class="g-bullets">
+              {% for b in item.bullets %}
+              <li>{{ b }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            {% if item.barcode_svg %}
+            <div class="g-upc">{{ item.barcode_svg|safe }}</div>
+            {% endif %}
+          </div>
         </article>
         {% endfor %}
       </div>
