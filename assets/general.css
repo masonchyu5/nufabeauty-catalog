@@ -1,18 +1,15 @@
 /* ======================================================================== */
-/*  General catalog (general.html only)                                       */
+/*  General catalog — refined skin (drop-in replacement for general.css)      */
 /*                                                                            */
-/*  Dynamic layout: per-section accent + per-group card variant (hero /       */
-/*  standard / compact / wide). The product text stack (sku, name, qty+price, */
-/*  bullets, barcode) keeps constant sizes everywhere; only grid columns and  */
-/*  image boxes change. All fixed dimensions here are mirrored by the height  */
-/*  model in scripts/build_general.py — keep the two in sync.                 */
-/*                                                                            */
-/*  Page chrome (.print-page, .page-disclaimer, .page-foot, print rules) is   */
-/*  reused read-only from assets/styles.css, same as the Chemical catalog.    */
+/*  PURE RESTYLE: every dimension the pagination height model in              */
+/*  scripts/build_general.py mirrors (banner/bandbar heights, body padding,   */
+/*  heading box, media box heights, grid gaps, every font size/line-height    */
+/*  in the product text stack, barcode size) is byte-identical to             */
+/*  assets/general.css. Only colors, borders, weights and screen-only TOC     */
+/*  chrome changed — zero reflow risk, no build-script changes needed.        */
 /* ======================================================================== */
 
 .general-page {
-  /* Same page font as .chemical-page — the two catalogs sit side by side. */
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -30,6 +27,17 @@
   align-items: center;
   justify-content: flex-end;
   padding: 0 0.4in;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.14);
+}
+
+/* Catalog kicker on the left — chrome, not product data. */
+.g-banner::before {
+  content: "GENERAL CATALOG";
+  margin-right: auto;
+  font-size: 8pt;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  opacity: 0.8;
 }
 
 .g-bandbar {
@@ -58,14 +66,15 @@
 
 .g-block + .g-block { margin-top: 16px; }
 
-/* Watermark group heading, like the print catalog's pale caps titles.
-   Reserved box is 30px total (26 line + 4 margin) in every state. */
+/* Watermark group heading — tinted toward the section accent so every page
+   reads as part of its section. Reserved box unchanged: 26px + 4px. */
 .g-heading {
   font-size: 18pt;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #d3d0cc;
+  color: color-mix(in srgb, var(--accent) 28%, #fff);
   height: 26px;
   line-height: 26px;
   white-space: nowrap;
@@ -105,7 +114,7 @@
 
 .g-media {
   background: #fff;
-  border: 1px solid var(--color-line-soft);
+  border: 1px solid #e6e0d4;
   padding: 4px;
   margin-bottom: 6px;
   overflow: hidden;
@@ -116,9 +125,6 @@
 .g-card--compact  .g-media { height: 130px; }
 .g-card--wide     .g-media { height: 150px; width: 150px; margin-bottom: 0; }
 
-/* The img element fills the media box exactly; scale-down letterboxes large
-   photos and never upscales small ones. Sizing the element (not max-*) is
-   what guarantees an image can never escape its box and touch the text. */
 .g-media img {
   display: block;
   width: 100%;
@@ -150,8 +156,11 @@
   font-weight: 400;
   line-height: 1.25;
   margin: 2px 0 0;
+  color: #33302c;
 }
 
+/* Qty muted, price strong; the rule under the row picks up the section
+   accent. Sizes/weights that drive wrapping stay conservative. */
 .g-qtyprice {
   display: flex;
   gap: 10px;
@@ -159,9 +168,13 @@
   font-size: 9.5pt;
   font-weight: 700;
   border-bottom: 1px solid #c9c9c9;
+  border-bottom-color: color-mix(in srgb, var(--accent) 42%, #e2dccf);
   padding: 3px 0;
   margin: 3px 0 4px;
 }
+
+.g-qty { color: #6b645c; font-weight: 600; }
+.g-price { color: #111; }
 
 .g-bullets {
   list-style: none;
@@ -184,8 +197,6 @@
   color: #000;
 }
 
-/* Print-scannable barcode: 113 modules over 1.4in ≈ 95% UPC magnification.
-   margin-top:auto bottom-aligns barcodes across a card row. */
 .g-upc {
   margin-top: auto;
   padding-top: 6px;
@@ -197,14 +208,21 @@
   display: block;
 }
 
-/* --- screen-only section TOC ---------------------------------------------- */
+/* --- screen-only section TOC (no pagination impact — restyled freely) ----- */
 
 .g-toc {
   width: min(92vw, var(--page-w));
   margin: 26px auto 0;
-  background: var(--color-paper);
-  border-radius: 10px;
-  padding: 22px 26px 18px;
+  background: #fff;
+  border: 1px solid #e3ddd2;
+  border-radius: 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32);
+  padding: 0;
+}
+
+.g-toc-header {
+  padding: 18px 26px 14px;
+  border-bottom: 1px solid #eee8dc;
 }
 
 .g-toc-kicker {
@@ -213,7 +231,7 @@
   font-weight: 600;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: var(--color-muted);
+  color: var(--color-red);
 }
 
 .g-toc-title {
@@ -225,7 +243,7 @@
 }
 
 .g-toc-meta {
-  margin: 2px 0 12px;
+  margin: 2px 0 0;
   font-size: 9.5pt;
   color: var(--color-muted);
 }
@@ -234,6 +252,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 4px 22px;
+  padding: 14px 26px 18px;
 }
 
 .g-toc-link {
@@ -242,11 +261,11 @@
   align-items: baseline;
   gap: 10px;
   padding: 5px 6px;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 10pt;
 }
 
-.g-toc-link:hover { background: rgba(0, 0, 0, 0.05); }
+.g-toc-link:hover { background: #f6f1e8; }
 
 .g-toc-chip {
   width: 10px;
